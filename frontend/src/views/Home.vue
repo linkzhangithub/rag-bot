@@ -117,7 +117,7 @@
     <footer class="footer">
       <div class="footer-content">
         <Logo size="sm" />
-        <p class="footer-text">基于 RAG 技术的智能问答系统 · 2024</p>
+        <p class="footer-text">基于 RAG 技术的智能问答系统 · 2026</p>
       </div>
     </footer>
   </div>
