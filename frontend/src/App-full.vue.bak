@@ -1,0 +1,405 @@
+<template>
+  <div class="app">
+    <!-- 侧边栏 -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <h1>📚 知识库问答</h1>
+      </div>
+
+      <!-- 上传区域 -->
+      <div class="upload-section">
+        <label class="upload-area" :class="{ uploading }">
+          <input 
+            type="file" 
+            accept=".md,.txt" 
+            @change="handleFileUpload"
+            :disabled="uploading"
+          />
+          <div v-if="!uploading">
+            <div class="upload-icon">📁</div>
+            <div>点击上传文档</div>
+          </div>
+          <div v-else class="uploading">
+            <div class="spinner"></div>
+            <div>上传中...</div>
+          </div>
+        </label>
+      </div>
+
+      <!-- 文档列表 -->
+      <div class="documents-section">
+        <h3>已上传文档 ({{ documents.length }})</h3>
+        <ul v-if="documents.length > 0" class="document-list">
+          <li v-for="doc in documents" :key="doc.name" class="document-item">
+            <div class="doc-info">
+              <div class="doc-name">{{ doc.name }}</div>
+              <div class="doc-chunks">{{ doc.chunks }} 个文本块</div>
+            </div>
+            <button @click="handleDelete(doc.name)" class="delete-btn">🗑️</button>
+          </li>
+        </ul>
+        <p v-else class="empty-tip">暂无文档</p>
+      </div>
+    </aside>
+
+    <!-- 主内容区 -->
+    <main class="main-content">
+      <!-- 聊天窗口 -->
+      <div class="chat-container" ref="chatContainer">
+        <div v-if="messages.length === 0" class="welcome">
+          <h2>欢迎使用知识库问答系统</h2>
+          <p>请先上传文档，然后我可以基于文档内容回答问题</p>
+        </div>
+
+        <div 
+          v-for="(msg, index) in messages" 
+          :key="index" 
+          :class="['message', msg.role]"
+        >
+          <div class="message-content">
+            {{ msg.content }}
+          </div>
+        </div>
+
+        <div v-if="isGenerating" class="message assistant loading">
+          <div class="message-content">
+            <span class="typing-indicator">思考中...</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 输入区域 -->
+      <div class="input-area">
+        <textarea
+          v-model="inputMessage"
+          @keydown.enter.exact.prevent="sendMessage"
+          placeholder="输入问题... (Enter发送, Shift+Enter换行)"
+          :disabled="isGenerating"
+          rows="3"
+        ></textarea>
+        <div class="input-actions">
+          <button 
+            v-if="isGenerating" 
+            @click="stopGeneration" 
+            class="stop-btn"
+          >
+            ⏹ 停止
+          </button>
+          <button 
+            v-else 
+            @click="sendMessage" 
+            class="send-btn"
+            :disabled="!inputMessage.trim()"
+          >
+            发送
+          </button>
+        </div>
+      </div>
+    </main>
+  </div>
+</template>
+
+<script setup>
+import { ref, nextTick } from 'vue'
+import { useChatStream } from './composables/useChatStream'
+import { useDocument } from './composables/useDocument'
+
+// 聊天相关
+const { messages, isGenerating, sendMessage: sendChatMessage, stop } = useChatStream()
+const inputMessage = ref('')
+const chatContainer = ref(null)
+
+async function sendMessage() {
+  if (!inputMessage.value.trim() || isGenerating.value) return
+  
+  const message = inputMessage.value
+  inputMessage.value = ''
+  
+  await sendChatMessage(message)
+  
+  // 滚动到底部
+  await nextTick()
+  if (chatContainer.value) {
+    chatContainer.value.scrollTop = chatContainer.value.scrollHeight
+  }
+}
+
+function stopGeneration() {
+  stop()
+}
+
+// 文档相关
+const { documents, uploading, handleUpload, handleDelete } = useDocument()
+
+async function handleFileUpload(event) {
+  const file = event.target.files[0]
+  if (!file) return
+  
+  try {
+    await handleUpload(file)
+    event.target.value = '' // 清空input
+  } catch (error) {
+    alert('上传失败: ' + error.message)
+  }
+}
+</script>
+
+<style scoped>
+.app {
+  display: flex;
+  height: 100vh;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* 侧边栏 */
+.sidebar {
+  width: 280px;
+  background: #1e293b;
+  color: white;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar-header {
+  padding: 20px;
+  border-bottom: 1px solid #334155;
+}
+
+.sidebar-header h1 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.upload-section {
+  padding: 16px;
+  border-bottom: 1px solid #334155;
+}
+
+.upload-area {
+  display: block;
+  border: 2px dashed #475569;
+  border-radius: 8px;
+  padding: 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.upload-area:hover:not(.uploading) {
+  border-color: #3b82f6;
+  background: rgba(59, 130, 246, 0.1);
+}
+
+.upload-area input {
+  display: none;
+}
+
+.upload-icon {
+  font-size: 32px;
+  margin-bottom: 8px;
+}
+
+.uploading {
+  color: #94a3b8;
+}
+
+.spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid #334155;
+  border-top-color: #3b82f6;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin: 0 auto 8px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.documents-section {
+  flex: 1;
+  padding: 16px;
+  overflow-y: auto;
+}
+
+.documents-section h3 {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  color: #94a3b8;
+}
+
+.document-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.document-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 6px;
+  margin-bottom: 8px;
+}
+
+.doc-name {
+  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.doc-chunks {
+  font-size: 12px;
+  color: #64748b;
+  margin-top: 2px;
+}
+
+.delete-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  opacity: 0.6;
+  transition: opacity 0.2s;
+}
+
+.delete-btn:hover {
+  opacity: 1;
+}
+
+.empty-tip {
+  color: #64748b;
+  font-size: 14px;
+  text-align: center;
+}
+
+/* 主内容区 */
+.main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: #f8f9fa;
+}
+
+.chat-container {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+}
+
+.welcome {
+  text-align: center;
+  padding: 60px 20px;
+  color: #64748b;
+}
+
+.welcome h2 {
+  margin-bottom: 12px;
+  color: #1e293b;
+}
+
+.message {
+  margin-bottom: 16px;
+  display: flex;
+}
+
+.message.user {
+  justify-content: flex-end;
+}
+
+.message.assistant {
+  justify-content: flex-start;
+}
+
+.message-content {
+  max-width: 70%;
+  padding: 12px 16px;
+  border-radius: 12px;
+  line-height: 1.6;
+}
+
+.message.user .message-content {
+  background: #3b82f6;
+  color: white;
+}
+
+.message.assistant .message-content {
+  background: white;
+  color: #334155;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.typing-indicator {
+  color: #94a3b8;
+  font-style: italic;
+}
+
+.input-area {
+  background: white;
+  padding: 16px 24px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.input-area textarea {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  resize: vertical;
+  font-family: inherit;
+  font-size: 14px;
+  transition: border-color 0.2s;
+}
+
+.input-area textarea:focus {
+  outline: none;
+  border-color: #3b82f6;
+}
+
+.input-area textarea:disabled {
+  background: #f1f5f9;
+  cursor: not-allowed;
+}
+
+.input-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+
+.send-btn, .stop-btn {
+  padding: 10px 24px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.send-btn {
+  background: #3b82f6;
+  color: white;
+}
+
+.send-btn:hover:not(:disabled) {
+  background: #2563eb;
+}
+
+.send-btn:disabled {
+  background: #cbd5e1;
+  cursor: not-allowed;
+}
+
+.stop-btn {
+  background: #ef4444;
+  color: white;
+}
+
+.stop-btn:hover {
+  background: #dc2626;
+}
+</style>

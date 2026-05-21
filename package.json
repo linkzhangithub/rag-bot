@@ -1,0 +1,29 @@
+{
+  "name": "rag-bot",
+  "version": "1.0.0",
+  "description": "通用知识库问答系统",
+  "main": "server.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "jest backend/tests",
+    "start": "node backend/server.js",
+    "dev": "cd frontend && npm run dev",
+    "build:frontend": "cd frontend && npm run build",
+    "preview": "cd frontend && npm run preview"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.5.2",
+    "multer": "^1.4.5-lts.1"
+  },
+  "devDependencies": {
+    "jest": "^30.4.2"
+  }
+}
