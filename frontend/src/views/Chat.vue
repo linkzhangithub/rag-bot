@@ -113,7 +113,6 @@ const closeSidebar = () => {
 const sendMessage = (content) => sendChatMessage(content);
 
 const handleDeleteDocument = async (name) => {
-  if (!confirm(`确定要删除文档 "${name}" 吗？`)) return;
   try {
     await handleDelete(name);
     success(`文档 "${name}" 删除成功`);

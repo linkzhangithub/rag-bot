@@ -48,10 +48,22 @@
       <span class="empty-text">暂无文档</span>
       <span class="empty-hint">上传文档开始使用</span>
     </div>
+
+    <!-- 删除确认弹窗 -->
+    <DeleteConfirmModal
+      v-model:visible="showDeleteModal"
+      :document-name="documentToDelete"
+      :loading="isDeleting"
+      @confirm="confirmDelete"
+      @cancel="cancelDelete"
+    />
   </div>
 </template>
 
 <script setup>
+import { ref } from 'vue'
+import DeleteConfirmModal from './DeleteConfirmModal.vue'
+
 const props = defineProps({
   documents: {
     type: Array,
@@ -64,6 +76,11 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['delete'])
+
+// 删除弹窗状态
+const showDeleteModal = ref(false)
+const documentToDelete = ref('')
+const isDeleting = ref(false)
 
 function formatSize(bytes) {
   if (!bytes) return '未知'
@@ -79,9 +96,35 @@ async function handleDelete(name) {
     return
   }
   
-  // 直接触发删除，确认在父组件中处理
-  emit('delete', name)
+  // 显示删除确认弹窗
+  documentToDelete.value = name
+  showDeleteModal.value = true
 }
+
+// 确认删除
+function confirmDelete() {
+  if (!documentToDelete.value) return
+  isDeleting.value = true
+  emit('delete', documentToDelete.value)
+}
+
+// 取消删除
+function cancelDelete() {
+  isDeleting.value = false
+  documentToDelete.value = ''
+}
+
+// 外部可以通过这个方法关闭弹窗和重置状态
+function resetDeleteState() {
+  isDeleting.value = false
+  documentToDelete.value = ''
+  showDeleteModal.value = false
+}
+
+// 暴露方法给父组件
+defineExpose({
+  resetDeleteState
+})
 
 // 确保文档数据有效
 function isValidDocument(doc) {
