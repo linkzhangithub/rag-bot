@@ -1,5 +1,4 @@
-const https = require('https');
-const config = require('../config');
+const HttpUtils = require('../utils/http-utils');
 
 /**
  * LLM 服务
@@ -32,17 +31,12 @@ ${question}`;
   }
 
   /**
-   * 普通问答（非流式）
-   * @param {string} question - 用户问题
-   * @param {Array} relevantDocs - 相关文档数组
-   * @param {Array} history - 对话历史（可选）
-   * @returns {Promise<string>} AI 回答
+   * 构建消息列表（包含历史对话）
+   * @param {string} prompt - 完整的 prompt
+   * @param {Array} history - 对话历史
+   * @returns {Array} 消息列表
    */
-  async chat(question, relevantDocs, history = []) {
-    const context = relevantDocs.map((doc, index) => `【参考文档${index + 1}】\n${doc.content}`).join('\n\n');
-    const prompt = this.buildPrompt(context, question);
-
-    // 构建消息列表（包含历史）
+  buildMessages(prompt, history = []) {
     const messages = [
       {
         role: 'system',
@@ -50,66 +44,38 @@ ${question}`;
       },
     ];
 
-    // 添加历史对话（最近5轮）
+    // 添加最近10轮历史对话
     const recentHistory = history.slice(-10);
     messages.push(...recentHistory);
 
     // 添加当前问题
     messages.push({ role: 'user', content: prompt });
 
-    return new Promise((resolve, reject) => {
-      const body = JSON.stringify({
-        model: 'glm-4-flash',
-        messages,
-        temperature: 0.1,
-        top_p: 0.5,
-      });
+    return messages;
+  }
 
-      const options = {
-        hostname: 'open.bigmodel.cn',
-        port: 443,
-        path: '/api/paas/v4/chat/completions',
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${config.zhipuApiKey}`,
-        },
-      };
+  /**
+   * 构建上下文文本
+   * @param {Array} relevantDocs - 相关文档数组
+   * @returns {string} 格式化的上下文字符串
+   */
+  buildContext(relevantDocs) {
+    return relevantDocs.map((doc, index) => `【参考文档${index + 1}】\n${doc.content}`).join('\n\n');
+  }
 
-      const req = https.request(options, (res) => {
-        let responseData = '';
-        res.on('data', (chunk) => (responseData += chunk));
-        res.on('end', () => {
-          try {
-            const response = JSON.parse(responseData);
-
-            if (
-              !response ||
-              !response.choices ||
-              !Array.isArray(response.choices) ||
-              response.choices.length === 0
-            ) {
-              throw new Error('对话响应格式错误');
-            }
-
-            if (!response.choices[0].message || !response.choices[0].message.content) {
-              throw new Error('对话响应中缺少消息内容');
-            }
-
-            resolve(response.choices[0].message.content);
-          } catch (error) {
-            reject(error);
-          }
-        });
-      });
-
-      req.on('error', (error) => {
-        reject(error);
-      });
-
-      req.write(body);
-      req.end();
-    });
+  /**
+   * 普通问答（非流式）
+   * @param {string} question - 用户问题
+   * @param {Array} relevantDocs - 相关文档数组
+   * @param {Array} history - 对话历史（可选）
+   * @returns {Promise<string>} AI 回答
+   */
+  async chat(question, relevantDocs, history = []) {
+    const context = this.buildContext(relevantDocs);
+    const prompt = this.buildPrompt(context, question);
+    const messages = this.buildMessages(prompt, history);
+    
+    return HttpUtils.request(messages, { stream: false });
   }
 
   /**
@@ -121,100 +87,11 @@ ${question}`;
    * @param {Function} onChunk - 每个数据块的回调（可选）
    */
   async chatStream(question, relevantDocs, res, history = [], onChunk) {
-    const context = relevantDocs.map((doc, index) => `【参考文档${index + 1}】\n${doc.content}`).join('\n\n');
+    const context = this.buildContext(relevantDocs);
     const prompt = this.buildPrompt(context, question);
-
-    // 注意：响应头已在 routes 层设置，这里不需要再调用 writeHead
-
-    // 构建消息列表（包含历史）
-    const messages = [
-      {
-        role: 'system',
-        content: '你是一个专业的文档问答助手，必须严格按照提供的参考文档内容进行回答，不得虚构信息。',
-      },
-    ];
-
-    // 添加历史对话（最近5轮）
-    const recentHistory = history.slice(-10);
-    messages.push(...recentHistory);
-
-    // 添加当前问题
-    messages.push({ role: 'user', content: prompt });
-
-    const body = JSON.stringify({
-      model: 'glm-4-flash',
-      messages,
-      temperature: 0.1,
-      top_p: 0.5,
-      stream: true, // 启用流式输出
-    });
-
-    const options = {
-      hostname: 'open.bigmodel.cn',
-      port: 443,
-      path: '/api/paas/v4/chat/completions',
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${config.zhipuApiKey}`,
-      },
-      timeout: 60000, // 60秒超时
-    };
-
-    const req = https.request(options, (apiRes) => {
-      apiRes.on('data', (chunk) => {
-        const text = chunk.toString();
-        const lines = text.split('\n').filter((line) => line.trim() !== '');
-
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = line.slice(6);
-
-            if (data === '[DONE]') {
-              // 流结束
-              res.write('data: [DONE]\n\n');
-              return;
-            }
-
-            try {
-              const parsed = JSON.parse(data);
-              const content = parsed.choices?.[0]?.delta?.content || '';
-
-              if (content) {
-                res.write(`data: ${JSON.stringify({ content })}\n\n`);
-                // 调用回调函数（用于收集完整答案）
-                if (onChunk) {
-                  onChunk(content);
-                }
-              }
-            } catch (e) {
-              // 忽略解析错误
-            }
-          }
-        }
-      });
-
-      apiRes.on('end', () => {
-        res.write('data: [DONE]\n\n');
-        res.end();
-      });
-    });
-
-    req.on('error', (error) => {
-      console.error('SSE 请求失败:', error);
-      res.write(`data: ${JSON.stringify({ error: error.message })}\n\n`);
-      res.end();
-    });
-
-    req.on('timeout', () => {
-      req.destroy();
-      console.error('SSE 请求超时');
-      res.write(`data: ${JSON.stringify({ error: '请求超时，请稍后重试' })}\n\n`);
-      res.end();
-    });
-
-    req.write(body);
-    req.end();
+    const messages = this.buildMessages(prompt, history);
+    
+    return HttpUtils.request(messages, { stream: true, res, onChunk });
   }
 }
 
