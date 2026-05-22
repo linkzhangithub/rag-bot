@@ -61,7 +61,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import DeleteConfirmModal from './DeleteConfirmModal.vue'
 
 const props = defineProps({
@@ -90,13 +90,11 @@ function formatSize(bytes) {
 }
 
 async function handleDelete(name) {
-  // 防止空名称或无效名称
   if (!name || typeof name !== 'string') {
     console.error('无效的文档名称:', name)
     return
   }
   
-  // 显示删除确认弹窗
   documentToDelete.value = name
   showDeleteModal.value = true
 }
@@ -110,23 +108,28 @@ function confirmDelete() {
 
 // 取消删除
 function cancelDelete() {
-  isDeleting.value = false
-  documentToDelete.value = ''
+  resetDeleteState()
 }
 
-// 外部可以通过这个方法关闭弹窗和重置状态
+// 重置删除状态
 function resetDeleteState() {
   isDeleting.value = false
   documentToDelete.value = ''
   showDeleteModal.value = false
 }
 
+// 监听文档列表变化，删除成功后自动重置弹窗状态
+watch(() => props.documents, () => {
+  if (isDeleting.value) {
+    resetDeleteState()
+  }
+}, { deep: true })
+
 // 暴露方法给父组件
 defineExpose({
   resetDeleteState
 })
 
-// 确保文档数据有效
 function isValidDocument(doc) {
   return doc && typeof doc === 'object' && typeof doc.name === 'string' && doc.name.length > 0
 }
