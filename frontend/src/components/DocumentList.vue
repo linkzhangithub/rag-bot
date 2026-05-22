@@ -184,8 +184,8 @@ async function handleDelete(name) {
   color: var(--text-h);
   white-space: nowrap;
   overflow: hidden;
-  text-overflow: ellipsis;
   line-height: 1.3;
+  max-width: 100%;
 }
 
 .doc-meta {

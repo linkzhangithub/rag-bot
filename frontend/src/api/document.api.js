@@ -2,7 +2,9 @@ import axios from 'axios'
 
 const api = axios.create({
   baseURL: '/api',
-  timeout: 30000
+  timeout: 30000,
+  responseType: 'json',
+  responseEncoding: 'utf8'
 })
 
 // 响应拦截器 - 统一错误处理

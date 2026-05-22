@@ -1,17 +1,40 @@
 <template>
   <Transition name="notification">
     <div v-if="show" class="notification" :class="type">
-      <span class="notification-icon">{{ icon }}</span>
+      <svg class="notification-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <template v-if="type === 'info'">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="12" y1="16" x2="12" y2="12"/>
+          <line x1="12" y1="8" x2="12.01" y2="8"/>
+        </template>
+        <template v-else-if="type === 'success'">
+          <circle cx="12" cy="12" r="10"/>
+          <polyline points="16 10 10 16 8 14"/>
+        </template>
+        <template v-else-if="type === 'error'">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="15" y1="9" x2="9" y2="15"/>
+          <line x1="9" y1="9" x2="15" y2="15"/>
+        </template>
+        <template v-else-if="type === 'warning'">
+          <path d="M12 9v4"/>
+          <path d="M12 17h.01"/>
+          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/>
+        </template>
+      </svg>
       <span class="notification-message">{{ message }}</span>
-      <button @click="$emit('close')" class="notification-close">✕</button>
+      <button @click="$emit('close')" class="notification-close" aria-label="关闭通知">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"/>
+          <line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
     </div>
   </Transition>
 </template>
 
 <script setup>
-import { computed } from 'vue'
-
-const props = defineProps({
+defineProps({
   show: {
     type: Boolean,
     default: false
@@ -28,16 +51,6 @@ const props = defineProps({
 })
 
 defineEmits(['close'])
-
-const icon = computed(() => {
-  const icons = {
-    info: 'ℹ️',
-    success: '✅',
-    error: '❌',
-    warning: '⚠️'
-  }
-  return icons[props.type] || icons.info
-})
 </script>
 
 <style scoped>

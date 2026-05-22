@@ -29,7 +29,23 @@ const storage = multer.diskStorage({
     cb(null, uploadDir);
   },
   filename: (req, file, cb) => {
-    cb(null, file.originalname);
+    // 处理中文文件名编码问题
+    let fileName = file.originalname;
+    console.log(`[DEBUG] 原始文件名: ${fileName}`);
+    
+    // 尝试检测并修复编码问题
+    try {
+      // 如果文件名看起来是 UTF-8 被错误解码为 Latin-1，尝试还原
+      const decoded = Buffer.from(fileName, 'latin1').toString('utf8');
+      if (decoded !== fileName && /[\u4e00-\u9fa5]/.test(decoded)) {
+        fileName = decoded;
+        console.log(`[DEBUG] 修复后文件名: ${fileName}`);
+      }
+    } catch (e) {
+      console.log(`[DEBUG] 文件名编码修复失败: ${e.message}`);
+    }
+    
+    cb(null, fileName);
   },
 });
 
@@ -74,16 +90,18 @@ router.get('/', (req, res) => {
 /**
  * POST /api/documents - 上传文档
  */
-router.post('/', upload.single('file'), async (req, res) => {
+router.post('/', uploadLimiter, upload.single('file'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ success: false, error: '请选择要上传的文件' });
     }
 
     const filePath = req.file.path;
-    const fileName = req.file.originalname;
+    // 使用 multer 修复后的文件名（已处理 UTF-8 编码问题）
+    const fileName = req.file.filename;
+    const fileSize = req.file.size;
 
-    const chunkCount = await documentService.processDocument(filePath, fileName);
+    const chunkCount = await documentService.processDocument(filePath, fileName, fileSize);
 
     // 删除临时文件
     fs.unlinkSync(filePath);
@@ -93,6 +111,7 @@ router.post('/', upload.single('file'), async (req, res) => {
       message: `文件上传成功，共 ${chunkCount} 个文本块`,
       fileName,
       chunkCount,
+      fileSize,
     });
   } catch (error) {
     console.error('上传文件失败:', error);

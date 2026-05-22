@@ -138,10 +138,14 @@ onUnmounted(() => {
 .upload-container {
   border: 2px dashed var(--accent-border);
   border-radius: 12px;
-  padding: 20px;
+  padding: 24px 20px;
   background: var(--accent-bg);
   position: relative;
   transition: all 0.15s ease;
+  min-height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .upload-container:hover:not(.uploading) {
@@ -174,6 +178,7 @@ onUnmounted(() => {
   flex-direction: column;
   align-items: center;
   gap: 12px;
+  flex-shrink: 0;
 }
 
 .upload-icon {
@@ -210,6 +215,7 @@ onUnmounted(() => {
   flex-direction: column;
   align-items: center;
   gap: 10px;
+  flex-shrink: 0;
 }
 
 .spinner {
@@ -250,16 +256,17 @@ onUnmounted(() => {
   position: absolute;
   top: 12px;
   right: 12px;
-  background: var(--success);
-  color: white;
-  padding: 8px 14px;
-  border-radius: 8px;
-  font-size: 12px;
+  background: var(--card-bg);
+  color: var(--success);
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 13px;
   font-weight: 500;
   display: flex;
   align-items: center;
-  gap: 6px;
-  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.2);
+  gap: 8px;
+  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.15);
+  border: 1px solid var(--accent-border);
 }
 
 .fade-enter-active,

@@ -85,15 +85,17 @@ class VectorStore {
 
   /**
    * 获取文档列表（按来源分组）
-   * @returns {Array} 文档列表 [{ name, chunks }]
+   * @returns {Array} 文档列表 [{ name, chunks, size }]
    */
   getDocumentList() {
     const docMap = new Map();
 
     for (const doc of this.data) {
       const name = doc.metadata.source;
+      const size = doc.metadata.size || 0;
+      
       if (!docMap.has(name)) {
-        docMap.set(name, { name, chunks: 0 });
+        docMap.set(name, { name, chunks: 0, size });
       }
       docMap.get(name).chunks++;
     }

@@ -50,9 +50,10 @@ class DocumentService {
    * 加载并处理文档
    * @param {string} filePath - 文件路径
    * @param {string} fileName - 文件名
+   * @param {number} fileSize - 文件大小（字节）
    * @returns {Promise<number>} 处理的文本块数量
    */
-  async processDocument(filePath, fileName) {
+  async processDocument(filePath, fileName, fileSize = 0) {
     // 根据文件类型解析文档
     const content = await this.parseDocument(filePath);
     const chunks = chunkerService.splitText(content);
@@ -64,7 +65,7 @@ class DocumentService {
       docs.push({
         content: chunk,
         embedding,
-        metadata: { source: fileName },
+        metadata: { source: fileName, size: fileSize },
       });
     }
 
@@ -98,7 +99,9 @@ class DocumentService {
 
     for (const file of files) {
       const filePath = `${docsDir}/${file}`;
-      const chunkCount = await this.processDocument(filePath, file);
+      const stats = fs.statSync(filePath);
+      const fileSize = stats.size;
+      const chunkCount = await this.processDocument(filePath, file, fileSize);
       console.log(`加载文档：${file}，分割为 ${chunkCount} 个文本块`);
     }
 

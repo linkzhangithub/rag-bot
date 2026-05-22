@@ -48,6 +48,14 @@ const sidebarCollapsed = ref(true);
 
 const checkMobile = () => {
   isMobile.value = window.innerWidth <= 768;
+  // 根据设备类型设置侧边栏初始状态
+  if (isMobile.value) {
+    sidebarCollapsed.value = true;
+    sidebarOpen.value = false;
+  } else {
+    sidebarCollapsed.value = false;
+    sidebarOpen.value = true;
+  }
 };
 
 const goHome = () => router.push("/");

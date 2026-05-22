@@ -62,10 +62,17 @@
 @media (max-width: 768px) {
   .chat-header {
     padding: 10px 16px;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 200;
   }
 
   .chat-container {
     padding-left: 56px;
+    padding-top: 56px;
+    height: calc(100vh - 56px);
   }
 
   .header-left {

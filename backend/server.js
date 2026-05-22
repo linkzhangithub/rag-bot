@@ -11,6 +11,11 @@ const app = express();
 // 中间件
 app.use(express.json());
 app.use(cors());
+// 设置响应头，确保UTF-8编码
+app.use((req, res, next) => {
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  next();
+});
 // 静态文件服务 - 支持前端 public 目录和根目录
 app.use(express.static(path.join(__dirname, '..', 'frontend', 'public')));
 app.use(express.static(path.join(__dirname, '..')));
