@@ -3,10 +3,78 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const rateLimit = require('express-rate-limit');
+const iconv = require('iconv-lite');
 const documentService = require('../services/document.service');
 const vectorStore = require('../services/vector-store.service');
 
 const router = express.Router();
+
+/**
+ * 检测并转换文件名编码
+ * 支持 UTF-8、GBK、GB2312、GB18030、ISO-8859-1 等编码
+ * @param {string} fileName - 原始文件名
+ * @returns {string} 转换后的 UTF-8 文件名
+ */
+function detectAndConvertEncoding(fileName) {
+  if (!fileName) return fileName;
+
+  // 支持的编码列表，按优先级排序
+  const encodings = ['utf8', 'GB18030', 'GBK', 'GB2312', 'latin1'];
+  
+  // 先检查是否已经是有效的 UTF-8
+  if (isValidUTF8(fileName)) {
+    console.log('[DEBUG] 文件名为有效 UTF-8 编码');
+    return fileName;
+  }
+
+  // 尝试各种编码转换
+  for (const encoding of encodings) {
+    try {
+      // 将字符串视为特定编码的字节序列，然后转换为 UTF-8
+      const buffer = Buffer.from(fileName, 'latin1');
+      const converted = iconv.decode(buffer, encoding);
+      
+      // 验证转换结果是否包含有效中文字符
+      if (converted !== fileName && /[\u4e00-\u9fa5]/.test(converted)) {
+        console.log(`[DEBUG] 通过 ${encoding} 编码成功转换文件名`);
+        return converted;
+      }
+    } catch (e) {
+      console.log(`[DEBUG] 尝试 ${encoding} 编码转换失败: ${e.message}`);
+    }
+  }
+
+  // 尝试 UTF-8 被错误解码为 Latin-1 的情况
+  try {
+    const decoded = Buffer.from(fileName, 'latin1').toString('utf8');
+    if (decoded !== fileName && isValidUTF8(decoded) && /[\u4e00-\u9fa5]/.test(decoded)) {
+      console.log('[DEBUG] 通过 Latin-1 -> UTF-8 转换成功');
+      return decoded;
+    }
+  } catch (e) {
+    console.log(`[DEBUG] Latin-1 -> UTF-8 转换失败: ${e.message}`);
+  }
+
+  // 如果所有尝试都失败，返回原始文件名
+  console.log('[DEBUG] 无法检测到有效编码，使用原始文件名');
+  return fileName;
+}
+
+/**
+ * 检查字符串是否为有效的 UTF-8
+ * @param {string} str - 待检查的字符串
+ * @returns {boolean} 是否为有效的 UTF-8
+ */
+function isValidUTF8(str) {
+  try {
+    // 通过编码解码验证
+    const encoded = Buffer.from(str, 'utf8');
+    const decoded = encoded.toString('utf8');
+    return str === decoded;
+  } catch {
+    return false;
+  }
+}
 
 // 上传接口限流：每分钟5次
 const uploadLimiter = rateLimit({
@@ -15,9 +83,6 @@ const uploadLimiter = rateLimit({
   message: { success: false, error: '上传频率过高，请稍后再试' },
   standardHeaders: true,
 });
-
-// 应用限流到 POST 路由
-router.post('/', uploadLimiter);
 
 // 配置 multer
 const storage = multer.diskStorage({
@@ -33,14 +98,10 @@ const storage = multer.diskStorage({
     let fileName = file.originalname;
     console.log(`[DEBUG] 原始文件名: ${fileName}`);
     
-    // 尝试检测并修复编码问题
+    // 增强的编码检测和转换逻辑
     try {
-      // 如果文件名看起来是 UTF-8 被错误解码为 Latin-1，尝试还原
-      const decoded = Buffer.from(fileName, 'latin1').toString('utf8');
-      if (decoded !== fileName && /[\u4e00-\u9fa5]/.test(decoded)) {
-        fileName = decoded;
-        console.log(`[DEBUG] 修复后文件名: ${fileName}`);
-      }
+      fileName = detectAndConvertEncoding(fileName);
+      console.log(`[DEBUG] 修复后文件名: ${fileName}`);
     } catch (e) {
       console.log(`[DEBUG] 文件名编码修复失败: ${e.message}`);
     }
@@ -66,10 +127,19 @@ const upload = multer({
       }
     }
     
-    if (ext === '.md' || ext === '.txt' || ext === '.pdf') {
+    // 检查 DOCX 支持
+    if (ext === '.docx') {
+      try {
+        require('mammoth');
+      } catch (e) {
+        return cb(new Error('DOCX 解析库未安装，请先运行: npm install mammoth'));
+      }
+    }
+    
+    if (ext === '.md' || ext === '.txt' || ext === '.pdf' || ext === '.docx') {
       cb(null, true);
     } else {
-      cb(new Error('只支持 .md、.txt 和 .pdf 文件'));
+      cb(new Error('只支持 .md、.txt、.pdf 和 .docx 文件'));
     }
   },
 });
@@ -79,10 +149,13 @@ const upload = multer({
  */
 router.get('/', (req, res) => {
   try {
+    console.log('[DEBUG] 获取文档列表请求');
     const documents = vectorStore.getDocumentList();
+    console.log(`[DEBUG] 文档列表: ${JSON.stringify(documents)}`);
     res.json({ success: true, documents });
   } catch (error) {
-    console.error('获取文档列表失败:', error);
+    console.error('[ERROR] 获取文档列表失败:', error);
+    console.error('[ERROR] 错误堆栈:', error.stack);
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -92,16 +165,23 @@ router.get('/', (req, res) => {
  */
 router.post('/', uploadLimiter, upload.single('file'), async (req, res) => {
   try {
+    console.log('[DEBUG] 收到文件上传请求');
+    
     if (!req.file) {
+      console.log('[DEBUG] 没有文件被上传');
       return res.status(400).json({ success: false, error: '请选择要上传的文件' });
     }
 
     const filePath = req.file.path;
-    // 使用 multer 修复后的文件名（已处理 UTF-8 编码问题）
     const fileName = req.file.filename;
     const fileSize = req.file.size;
+    
+    console.log(`[DEBUG] 文件路径: ${filePath}`);
+    console.log(`[DEBUG] 文件名称: ${fileName}`);
+    console.log(`[DEBUG] 文件大小: ${fileSize} 字节`);
 
     const chunkCount = await documentService.processDocument(filePath, fileName, fileSize);
+    console.log(`[DEBUG] 文档处理完成，共 ${chunkCount} 个文本块`);
 
     // 删除临时文件
     fs.unlinkSync(filePath);
@@ -114,7 +194,8 @@ router.post('/', uploadLimiter, upload.single('file'), async (req, res) => {
       fileSize,
     });
   } catch (error) {
-    console.error('上传文件失败:', error);
+    console.error('[ERROR] 上传文件失败:', error);
+    console.error('[ERROR] 错误堆栈:', error.stack);
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -134,6 +215,25 @@ router.delete('/:name', (req, res) => {
     }
   } catch (error) {
     console.error('删除文档失败:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * POST /api/documents/refresh - 刷新知识库（重新加载docs目录）
+ */
+router.post('/refresh', async (req, res) => {
+  try {
+    await documentService.reinitializeKnowledgeBase();
+    const documents = vectorStore.getDocumentList();
+    res.json({ 
+      success: true, 
+      documents, 
+      message: '知识库刷新成功' 
+    });
+  } catch (error) {
+    console.error('[ERROR] 刷新知识库失败:', error);
+    console.error('[ERROR] 错误堆栈:', error.stack);
     res.status(500).json({ success: false, error: error.message });
   }
 });

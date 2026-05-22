@@ -45,6 +45,12 @@
         </svg>
         <h3>文档列表</h3>
         <span class="doc-count">{{ documents.length }}</span>
+        <button @click="onRefresh" class="refresh-btn" title="刷新文档列表" aria-label="刷新文档列表">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="23 4 23 10 17 10"/>
+            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+          </svg>
+        </button>
       </div>
       <DocumentList :documents="documents" :collapsed="isCollapsed" @delete="$emit('delete-document', $event)" />
     </div>
@@ -77,7 +83,7 @@ const props = defineProps({
   mobileOpen: { type: Boolean, default: false }
 })
 
-const emit = defineEmits(['delete-document', 'upload-success', 'upload-error', 'toggle'])
+const emit = defineEmits(['delete-document', 'upload-success', 'upload-error', 'toggle', 'refresh'])
 
 const isCollapsed = computed(() => props.collapsed)
 const isMobileOpen = computed(() => props.mobileOpen)
@@ -90,4 +96,5 @@ function openSidebar() { emit('toggle', true) }
 function closeSidebar() { emit('toggle', false) }
 function onUploadSuccess() { emit('upload-success') }
 function onUploadError(message) { emit('upload-error', message) }
+function onRefresh() { emit('refresh') }
 </script>

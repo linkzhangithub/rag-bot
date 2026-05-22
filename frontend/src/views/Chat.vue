@@ -4,8 +4,20 @@
       <div class="header-left">
         <AppButton variant="outline" size="sm" @click="goHome">
           <template #icon>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M19 12H5M5 12L12 19M5 12L12 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M19 12H5M5 12L12 19M5 12L12 5"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
             </svg>
           </template>
           返回首页
@@ -16,11 +28,35 @@
       </div>
     </header>
     <div class="chat-container">
-      <Sidebar :documents="documents" :collapsed="sidebarCollapsed" :mobile-open="sidebarOpen" @delete-document="handleDeleteDocument" @upload-success="handleUploadSuccess" @upload-error="handleUploadError" @toggle="handleSidebarToggle" />
-      <div v-if="sidebarOpen && isMobile" class="sidebar-overlay" @click="closeSidebar"></div>
-      <ChatArea :messages="messages" :is-generating="isGenerating" :documents="documents" @send="sendMessage" @quick-ask="sendMessage" />
+      <Sidebar
+        :documents="documents"
+        :collapsed="sidebarCollapsed"
+        :mobile-open="sidebarOpen"
+        @delete-document="handleDeleteDocument"
+        @upload-success="handleUploadSuccess"
+        @upload-error="handleUploadError"
+        @toggle="handleSidebarToggle"
+        @refresh="handleRefreshDocuments"
+      />
+      <div
+        v-if="sidebarOpen && isMobile"
+        class="sidebar-overlay"
+        @click="closeSidebar"
+      ></div>
+      <ChatArea
+        :messages="messages"
+        :is-generating="isGenerating"
+        :documents="documents"
+        @send="sendMessage"
+        @quick-ask="sendMessage"
+      />
     </div>
-    <AppNotification :show="notification.show" :message="notification.message" :type="notification.type" @close="closeNotification" />
+    <AppNotification
+      :show="notification.show"
+      :message="notification.message"
+      :type="notification.type"
+      @close="closeNotification"
+    />
   </div>
 </template>
 
@@ -35,11 +71,15 @@ import ChatArea from "../components/ChatArea.vue";
 import { useChatStream } from "../composables/useChatStream";
 import { useDocument } from "../composables/useDocument";
 import { useNotification } from "../composables/useNotification";
-import '@/assets/styles/chat.css'
+import "@/assets/styles/chat.css";
 
 const router = useRouter();
-const { messages, isGenerating, sendMessage: sendChatMessage } = useChatStream();
-const { documents, handleDelete, loadDocuments } = useDocument();
+const {
+  messages,
+  isGenerating,
+  sendMessage: sendChatMessage,
+} = useChatStream();
+const { documents, handleDelete, loadDocuments, handleRefresh } = useDocument();
 const { notification, success, error, close } = useNotification();
 
 const sidebarOpen = ref(false);
@@ -89,6 +129,15 @@ const handleUploadSuccess = () => {
 
 const handleUploadError = (message) => {
   error("上传失败: " + message);
+};
+
+const handleRefreshDocuments = async () => {
+  try {
+    await handleRefresh();
+    success("文档刷新成功");
+  } catch (err) {
+    error("刷新失败: " + err.message);
+  }
 };
 
 const closeNotification = () => close();

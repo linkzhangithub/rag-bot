@@ -233,7 +233,8 @@ onUnmounted(() => {
 
 .uploading-text {
   font-size: 13px;
-  color: var(--text);
+  color: var(--accent);
+  font-weight: 500;
 }
 
 .progress-container {
@@ -256,8 +257,8 @@ onUnmounted(() => {
   position: absolute;
   top: 12px;
   right: 12px;
-  background: var(--card-bg);
-  color: var(--success);
+  background: var(--success);
+  color: white;
   padding: 10px 14px;
   border-radius: 10px;
   font-size: 13px;
@@ -265,8 +266,7 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 8px;
-  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.15);
-  border: 1px solid var(--accent-border);
+  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.3);
 }
 
 .fade-enter-active,

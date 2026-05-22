@@ -1,5 +1,5 @@
-import { ref, onMounted } from 'vue'
-import { getDocuments, uploadDocument, deleteDocument } from '../api/document.api'
+import { ref } from 'vue'
+import { getDocuments, uploadDocument, deleteDocument, refreshDocuments } from '../api/document.api'
 
 export function useDocument() {
   const documents = ref([])
@@ -7,16 +7,19 @@ export function useDocument() {
   const uploadProgress = ref(0)
 
   /**
-   * 加载文档列表
-   */
-  async function loadDocuments() {
-    try {
-      const response = await getDocuments()
-      documents.value = response.data.documents || []
-    } catch (error) {
-      console.error('加载文档失败:', error)
-    }
+ * 加载文档列表
+ * @returns {Promise<void>} - 无返回值
+ * @throws {Error} - 加载失败时抛出错误
+ */
+async function loadDocuments() {
+  try {
+    const response = await getDocuments()
+    documents.value = response.data.documents || []
+  } catch (error) {
+    console.error('加载文档失败:', error)
+    throw error
   }
+}
 
   /**
    * 上传文档
@@ -54,10 +57,18 @@ export function useDocument() {
     }
   }
 
-  // 组件挂载时加载文档
-  onMounted(() => {
-    loadDocuments()
-  })
+  /**
+   * 刷新文档列表
+   */
+  async function handleRefresh() {
+    try {
+      await refreshDocuments()
+      await loadDocuments()
+    } catch (error) {
+      console.error('刷新文档失败:', error)
+      throw error
+    }
+  }
 
   return {
     documents,
@@ -65,6 +76,7 @@ export function useDocument() {
     uploadProgress,
     loadDocuments,
     handleUpload,
-    handleDelete
+    handleDelete,
+    handleRefresh
   }
 }

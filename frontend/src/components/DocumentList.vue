@@ -73,7 +73,19 @@ function formatSize(bytes) {
 }
 
 async function handleDelete(name) {
+  // 防止空名称或无效名称
+  if (!name || typeof name !== 'string') {
+    console.error('无效的文档名称:', name)
+    return
+  }
+  
+  // 直接触发删除，确认在父组件中处理
   emit('delete', name)
+}
+
+// 确保文档数据有效
+function isValidDocument(doc) {
+  return doc && typeof doc === 'object' && typeof doc.name === 'string' && doc.name.length > 0
 }
 </script>
 
@@ -184,6 +196,7 @@ async function handleDelete(name) {
   color: var(--text-h);
   white-space: nowrap;
   overflow: hidden;
+  text-overflow: ellipsis;
   line-height: 1.3;
   max-width: 100%;
 }

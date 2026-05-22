@@ -145,6 +145,41 @@
   color: white;
 }
 
+/* 刷新按钮 */
+.refresh-btn {
+  width: 34px;
+  height: 34px;
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-border);
+  border-radius: 10px;
+  color: var(--accent);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  flex-shrink: 0;
+}
+
+.refresh-btn:hover {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+}
+
+.refresh-btn:active {
+  transform: scale(0.95);
+}
+
+.refresh-btn.loading {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 /* 文档区域 */
 .upload-section {
   padding: 16px;

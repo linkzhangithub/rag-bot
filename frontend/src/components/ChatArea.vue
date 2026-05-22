@@ -137,10 +137,15 @@ const messagesContainer = ref(null)
 const inputRef = ref(null)
 
 const quickQuestions = [
-  '什么是RAG？',
-  '如何解决RAG幻觉问题？',
-  '文本分块策略有哪些？',
-  '向量检索原理是什么？'
+  // AI医疗应用相关
+  '人工智能在医疗健康领域有哪些应用？',
+  'AI医疗应用的优势和挑战是什么？',
+  // RAG系统实践指南相关
+  '什么是RAG系统？它的核心原理是什么？',
+  '如何构建一个高效的RAG系统？',
+  // 脑机接口技术应用相关
+  '脑机接口技术是什么？它是如何工作的？',
+  '脑机接口技术有哪些主要应用场景？'
 ]
 
 watch(() => props.messages.length, async () => {
