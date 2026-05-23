@@ -170,9 +170,13 @@ function formatTime(timestamp) {
 function renderMarkdown(content, showIndicator = false) {
   if (!content) return ''
   try {
-    const html = marked(content)
+    let html = marked(content)
     if (showIndicator) {
-      return html.replace(/<\/p>$/, '<span class="typing-indicator"><span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span></span></p>')
+      if (html.endsWith('</p>') || html.endsWith('</p>\n')) {
+        html = html.replace(/<\/p>(\s*)$/, '<span class="typing-indicator"><span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span></span></p>$1')
+      } else {
+        html += '<span class="typing-indicator"><span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span></span>'
+      }
     }
     return html
   } catch (e) {
