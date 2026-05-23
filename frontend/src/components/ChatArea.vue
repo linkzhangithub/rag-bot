@@ -37,15 +37,7 @@
             </div>
             <div class="message-content-wrapper">
               <div class="message-text">
-                <span v-html="renderMarkdown(message.content)"></span>
-                <span 
-                  v-if="message.role === 'assistant' && isGenerating && messages[messages.length - 1]?.id === message.id" 
-                  class="typing-indicator"
-                >
-                  <span class="typing-dot"></span>
-                  <span class="typing-dot"></span>
-                  <span class="typing-dot"></span>
-                </span>
+                <span v-html="renderMarkdown(message.content, isGenerating && message.role === 'assistant' && messages[messages.length - 1]?.id === message.id)"></span>
               </div>
               
               <div v-if="message.sources && message.sources.length > 0" class="sources-section">
@@ -175,10 +167,14 @@ function formatTime(timestamp) {
   return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
 }
 
-function renderMarkdown(content) {
+function renderMarkdown(content, showIndicator = false) {
   if (!content) return ''
   try {
-    return marked(content)
+    const html = marked(content)
+    if (showIndicator) {
+      return html.replace(/<\/p>$/, '<span class="typing-indicator"><span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span></span></p>')
+    }
+    return html
   } catch (e) {
     console.warn('Markdown 解析失败:', e)
     return content
