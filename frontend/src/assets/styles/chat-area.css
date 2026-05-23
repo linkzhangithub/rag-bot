@@ -202,7 +202,11 @@
   max-width: 100%;
   box-sizing: border-box;
   transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-  display: inline-block;
+}
+
+.message-text > p {
+  display: inline;
+  margin: 0;
 }
 
 .typing-indicator {
@@ -210,7 +214,6 @@
   gap: 6px;
   margin-left: 4px;
   vertical-align: middle;
-  line-height: 1.5;
 }
 
 .typing-dot {
