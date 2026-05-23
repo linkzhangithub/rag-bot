@@ -52,6 +52,19 @@ class HttpUtils {
         res.on('data', (chunk) => (responseData += chunk));
         res.on('end', () => {
           try {
+            // 检查响应状态码
+            if (res.statusCode < 200 || res.statusCode >= 300) {
+              const error = new Error(`API 请求失败，状态码: ${res.statusCode}`);
+              error.statusCode = res.statusCode;
+              try {
+                error.response = JSON.parse(responseData);
+              } catch {
+                error.response = responseData;
+              }
+              reject(error);
+              return;
+            }
+
             const response = JSON.parse(responseData);
             if (!response?.choices?.[0]?.message?.content) {
               throw new Error('对话响应格式错误');
