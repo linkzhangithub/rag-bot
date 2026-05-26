@@ -150,7 +150,36 @@ const upload = multer({
 router.get('/', (req, res) => {
   try {
     console.log('[DEBUG] 获取文档列表请求');
-    const documents = vectorStore.getDocumentList();
+
+    // 优先从 docs 目录读取预设文档（适用于EdgeOne等无状态环境）
+    const docsDir = path.resolve(__dirname, '../../docs');
+    let documents = [];
+
+    if (fs.existsSync(docsDir)) {
+      const files = fs.readdirSync(docsDir).filter((file) => {
+        const ext = path.extname(file).toLowerCase();
+        return ext === '.md' || ext === '.txt' || ext === '.pdf' || ext === '.docx';
+      });
+
+      documents = files.map((file) => {
+        const filePath = path.join(docsDir, file);
+        const stats = fs.statSync(filePath);
+        return {
+          name: file,
+          chunks: 0,
+          size: stats.size,
+        };
+      });
+
+      console.log(`[DEBUG] 从docs目录读取到 ${documents.length} 个文档`);
+    }
+
+    // 如果docs目录为空，尝试从vectorStore获取
+    if (documents.length === 0) {
+      documents = vectorStore.getDocumentList();
+      console.log(`[DEBUG] 从vectorStore获取 ${documents.length} 个文档`);
+    }
+
     console.log(`[DEBUG] 文档列表: ${JSON.stringify(documents)}`);
     res.json({ success: true, documents });
   } catch (error) {
