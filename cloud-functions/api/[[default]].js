@@ -32,12 +32,12 @@ app.use(async (req, res, next) => {
 import documentRoutes from "../../backend/routes/document.routes.js";
 import chatRoutes from "../../backend/routes/chat.routes.js";
 
-// API 路由
-app.use("/documents", documentRoutes);
-app.use("/chat", chatRoutes);
+// API 路由 - 使用 /api 前缀与前端 baseURL 匹配
+app.use("/api/documents", documentRoutes);
+app.use("/api/chat", chatRoutes);
 
 // 健康检查
-app.get("/health", (req, res) => {
+app.get("/api/health", (req, res) => {
   res.json({ success: true, message: "RAG Bot API is running" });
 });
 
