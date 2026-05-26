@@ -1,5 +1,12 @@
-import { ref } from 'vue'
-import { getDocuments, uploadDocument, deleteDocument, refreshDocuments } from '../api/document.api'
+import { ref, onMounted } from 'vue'
+import { getDocuments, uploadDocument, deleteDocument } from '../api/document.api'
+
+// 预设文档列表（用于演示环境和EdgeOne部署）
+const PRESET_DOCUMENTS = [
+  { name: 'AI医疗应用.txt', chunks: 0, size: 2048 },
+  { name: 'RAG系统指南.md', chunks: 0, size: 4096 },
+  { name: '脑机接口技术.docx', chunks: 0, size: 8192 }
+]
 
 export function useDocument() {
   const documents = ref([])
@@ -7,19 +14,25 @@ export function useDocument() {
   const uploadProgress = ref(0)
 
   /**
- * 加载文档列表
- * @returns {Promise<void>} - 无返回值
- * @throws {Error} - 加载失败时抛出错误
- */
-async function loadDocuments() {
-  try {
-    const response = await getDocuments()
-    documents.value = response.data.documents || []
-  } catch (error) {
-    console.error('加载文档失败:', error)
-    throw error
+   * 加载文档列表
+   * 优先从API获取，失败时使用预设文档列表（适用于EdgeOne等无状态环境）
+   */
+  async function loadDocuments() {
+    try {
+      const response = await getDocuments()
+      const apiDocs = response.data.documents || []
+      
+      // 如果API返回了文档且不为空，使用API数据；否则使用预设文档
+      if (apiDocs.length > 0) {
+        documents.value = apiDocs
+      } else {
+        documents.value = PRESET_DOCUMENTS
+      }
+    } catch (error) {
+      console.warn('加载文档失败，使用预设文档:', error.message)
+      documents.value = PRESET_DOCUMENTS
+    }
   }
-}
 
   /**
    * 上传文档
@@ -57,18 +70,10 @@ async function loadDocuments() {
     }
   }
 
-  /**
-   * 刷新文档列表
-   */
-  async function handleRefresh() {
-    try {
-      await refreshDocuments()
-      await loadDocuments()
-    } catch (error) {
-      console.error('刷新文档失败:', error)
-      throw error
-    }
-  }
+  // 组件挂载时加载文档
+  onMounted(() => {
+    loadDocuments()
+  })
 
   return {
     documents,
@@ -76,7 +81,6 @@ async function loadDocuments() {
     uploadProgress,
     loadDocuments,
     handleUpload,
-    handleDelete,
-    handleRefresh
+    handleDelete
   }
 }
