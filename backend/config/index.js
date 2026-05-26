@@ -8,11 +8,6 @@ const config = {
   // 智谱 AI
   zhipuApiKey: process.env.ZHIPU_API_KEY,
   
-  // 讯飞语音
-  xunfeiAppId: process.env.XUNFEI_APP_ID,
-  xunfeiApiKey: process.env.XUNFEI_API_KEY,
-  xunfeiApiSecret: process.env.XUNFEI_API_SECRET,
-  
   // RAG 配置
   chunkSize: parseInt(process.env.CHUNK_SIZE) || 800,
   chunkOverlap: parseInt(process.env.CHUNK_OVERLAP) || 200,
