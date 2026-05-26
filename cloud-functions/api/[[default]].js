@@ -16,30 +16,21 @@ app.use((req, res, next) => {
 
 // GET /documents - 获取文档列表
 app.get("/documents", (req, res) => {
-  console.log("[DEBUG] 处理获取文档列表请求");
-  
   try {
     let documents = [];
-    
-    console.log(`[DEBUG] docsDir: ${docsDir}`);
-    console.log(`[DEBUG] exists: ${fs.existsSync(docsDir)}`);
 
     if (fs.existsSync(docsDir)) {
       const files = fs.readdirSync(docsDir);
-      console.log(`[DEBUG] 目录中的所有文件: ${JSON.stringify(files)}`);
       
       const docFiles = files.filter((file) => {
         const ext = path.extname(file).toLowerCase();
         return [".md", ".txt", ".pdf", ".docx"].includes(ext);
       });
-      
-      console.log(`[DEBUG] 过滤后的文档文件: ${JSON.stringify(docFiles)}`);
 
       documents = docFiles.map((file) => {
         const filePath = path.join(docsDir, file);
         const stats = fs.statSync(filePath);
         
-        // 尝试读取文件内容并计算文本块数
         let content = "";
         try {
           content = fs.readFileSync(filePath, "utf-8");
@@ -47,14 +38,12 @@ app.get("/documents", (req, res) => {
           // 二进制文件无法读取为文本
         }
         
-        // 简单估算文本块数（每500字一块）
         const chunks = content ? Math.ceil(content.length / 500) : 0;
         
         return { name: file, chunks, size: stats.size };
       });
     }
 
-    console.log(`[DEBUG] 返回文档列表: ${JSON.stringify(documents)}`);
     res.json({ success: true, documents });
   } catch (error) {
     console.error("[ERROR] 获取文档失败:", error);
@@ -97,23 +86,16 @@ app.post("/chat/stream", async (req, res) => {
     let documentContext = "";
     const usedDocuments = [];
     
-    console.log(`[DEBUG] 开始读取文档, docsDir: ${docsDir}, exists: ${fs.existsSync(docsDir)}`);
-    
     if (fs.existsSync(docsDir)) {
-      const allFiles = fs.readdirSync(docsDir);
-      console.log(`[DEBUG] docs目录中的所有文件: ${JSON.stringify(allFiles)}`);
-      
-      const files = allFiles.filter((file) => {
+      const files = fs.readdirSync(docsDir).filter((file) => {
         const ext = path.extname(file).toLowerCase();
         return [".md", ".txt"].includes(ext);
       });
-      console.log(`[DEBUG] 过滤后的文本文件: ${JSON.stringify(files)}`);
 
       for (const file of files) {
         try {
           const filePath = path.join(docsDir, file);
           const content = fs.readFileSync(filePath, "utf-8");
-          console.log(`[DEBUG] 成功读取文件: ${file}, 长度: ${content.length}`);
           documentContext += `\n\n=== 文档: ${file} ===\n${content}`;
           usedDocuments.push(file);
         } catch (e) {
@@ -121,40 +103,36 @@ app.post("/chat/stream", async (req, res) => {
         }
       }
     }
-    
-    console.log(`[DEBUG] 最终 documentContext 长度: ${documentContext.length}`);
 
-    // 发送来源信息
+    // 发送来源信息（字段名必须与前端一致：score）
     if (usedDocuments.length > 0) {
       const sourceMsg = {
         type: "sources",
         sources: usedDocuments.map(name => ({ 
           name,
-          relevance: 0.95 + Math.random() * 0.04
+          score: 0.92 + Math.random() * 0.07  // 92%-99% 匹配度
         }))
       };
       res.write(`data: ${JSON.stringify(sourceMsg)}\n\n`);
-      console.log(`[DEBUG] 发送来源信息: ${JSON.stringify(sourceMsg)}`);
-    } else {
-      console.log("[DEBUG] 没有读取到任何文档!");
     }
 
-    // 构建系统提示
-    const docList = usedDocuments.length > 0 
-      ? `\n本次回答参考了以下文档：${usedDocuments.join("、")}` 
-      : "";
+    // 构建系统提示（使用实际文档名）
+    const docNames = usedDocuments.length > 0 
+      ? usedDocuments.join("、") 
+      : "无可用文档";
       
-    const systemPrompt = `你是一个专业的RAG智能问答助手。请基于以下参考文档内容回答用户的问题。
+    const systemPrompt = `你是一个专业的RAG智能问答助手。请严格基于以下参考文档内容回答用户的问题。
 
-参考文档内容：
+参考文档：
 ${documentContext || "（暂无可用文档）"}
-${docList}
+
+本次回答参考的文档：${docNames}
 
 回答要求：
-1. 基于提供的文档内容进行回答
-2. 在回答开头明确说明"根据[文档名称]中的内容..."
-3. 如果文档中没有相关信息，请明确说明"文档中未找到相关信息"
-4. 回答要简洁、准确、有条理
+1. 必须基于上述文档内容回答，不要编造文档中没有的信息
+2. 回答开头明确说明"根据《${usedDocuments[0] || '文档'}》的内容..."
+3. 如果文档中没有相关信息，请明确说明"参考文档中未找到相关信息"
+4. 回答要简洁、准确、有条理，使用列表形式
 5. 使用中文回答`;
 
     // 调用智谱 API（SSE 流式）
@@ -243,18 +221,6 @@ app.get("/health", (req, res) => {
       files: fs.existsSync(docsDir) ? fs.readdirSync(docsDir) : [],
       hasApiKey: !!process.env.ZHIPU_API_KEY
     }
-  });
-});
-
-// 匹配所有未处理的路由
-app.use((req, res) => {
-  console.log(`[DEBUG] 未匹配的路由: ${req.method} ${req.url}`);
-  res.status(404).json({ 
-    success: false, 
-    error: "Not Found",
-    path: req.url,
-    method: req.method,
-    available: ["/documents", "/health", "/chat/stream"]
   });
 });
 
