@@ -8,8 +8,8 @@ const docsDir = path.resolve("./docs");
 // 中间件
 app.use(express.json({ limit: "50mb" }));
 
-// GET /api/documents - 获取文档列表
-app.get("/api/documents", (req, res) => {
+// GET /documents - 获取文档列表（EdgeOne自动添加/api前缀）
+app.get("/documents", (req, res) => {
   try {
     let documents = [];
 
@@ -32,8 +32,8 @@ app.get("/api/documents", (req, res) => {
   }
 });
 
-// GET /api/health - 健康检查
-app.get("/api/health", (req, res) => {
+// GET /health - 健康检查
+app.get("/health", (req, res) => {
   res.json({ success: true, message: "RAG Bot API is running" });
 });
 
