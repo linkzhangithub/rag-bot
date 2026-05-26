@@ -1,5 +1,7 @@
 import express from "express";
 import dotenv from "dotenv";
+import fs from "fs";
+import path from "path";
 
 // 加载环境变量
 dotenv.config();
@@ -9,24 +11,6 @@ const app = express();
 // 中间件
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true }));
-
-// 导入文档服务并初始化知识库
-import documentService from "../../backend/services/document.service.js";
-
-let initialized = false;
-
-async function ensureInitialized() {
-  if (!initialized) {
-    await documentService.initializeKnowledgeBase();
-    initialized = true;
-  }
-}
-
-// 初始化中间件 - 确保知识库在使用前已加载
-app.use(async (req, res, next) => {
-  await ensureInitialized();
-  next();
-});
 
 // 导入后端路由
 import documentRoutes from "../../backend/routes/document.routes.js";
