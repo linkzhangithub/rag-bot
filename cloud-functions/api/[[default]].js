@@ -95,6 +95,8 @@ app.post("/chat/stream", async (req, res) => {
 
     // 读取所有文档内容作为上下文
     let documentContext = "";
+    const usedDocuments = [];
+    
     if (fs.existsSync(docsDir)) {
       const files = fs.readdirSync(docsDir).filter((file) => {
         const ext = path.extname(file).toLowerCase();
@@ -106,10 +108,20 @@ app.post("/chat/stream", async (req, res) => {
           const filePath = path.join(docsDir, file);
           const content = fs.readFileSync(filePath, "utf-8");
           documentContext += `\n\n=== 文档: ${file} ===\n${content}`;
+          usedDocuments.push(file);
         } catch (e) {
           console.error(`[ERROR] 读取文件失败: ${file}`, e.message);
         }
       }
+    }
+
+    // 发送来源信息
+    if (usedDocuments.length > 0) {
+      const sourceMsg = {
+        type: "source",
+        documents: usedDocuments.map(name => ({ name }))
+      };
+      res.write(`data: ${JSON.stringify(sourceMsg)}\n\n`);
     }
 
     // 构建系统提示
