@@ -1,6 +1,6 @@
 const https = require('https');
 const config = require('../config');
-const { retryWithBackoff } = require('../utils/retry');
+const { retryWithBackoff } = require('../utils/retry-utils');
 
 /**
  * 向量嵌入服务
