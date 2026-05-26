@@ -6,12 +6,7 @@
   "cloudFunctions": {
     "nodejs": {
       "includeFiles": [
-        "backend/**",
         "docs/**"
-      ],
-      "externalNodeModules": [
-        "pdf-parse",
-        "mammoth"
       ],
       "maxDuration": 60
     }

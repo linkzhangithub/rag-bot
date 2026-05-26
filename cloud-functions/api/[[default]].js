@@ -1,58 +1,40 @@
+import express from "express";
 import fs from "fs";
 import path from "path";
 
+const app = express();
 const docsDir = path.resolve("./docs");
 
-export default function onRequest(context) {
-  const url = new URL(context.request.url);
-  const pathname = url.pathname;
-  const method = context.request.method;
+// 中间件
+app.use(express.json({ limit: "50mb" }));
 
-  // GET /api/documents - 获取文档列表
-  if (method === "GET" && pathname === "/api/documents") {
-    try {
-      let documents = [];
+// GET /api/documents - 获取文档列表
+app.get("/api/documents", (req, res) => {
+  try {
+    let documents = [];
 
-      if (fs.existsSync(docsDir)) {
-        const files = fs.readdirSync(docsDir).filter((file) => {
-          const ext = path.extname(file).toLowerCase();
-          return [".md", ".txt", ".pdf", ".docx"].includes(ext);
-        });
-
-        documents = files.map((file) => {
-          const filePath = path.join(docsDir, file);
-          const stats = fs.statSync(filePath);
-          return { name: file, chunks: 0, size: stats.size };
-        });
-      }
-
-      return new Response(JSON.stringify({ success: true, documents }), {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
+    if (fs.existsSync(docsDir)) {
+      const files = fs.readdirSync(docsDir).filter((file) => {
+        const ext = path.extname(file).toLowerCase();
+        return [".md", ".txt", ".pdf", ".docx"].includes(ext);
       });
-    } catch (error) {
-      return new Response(
-        JSON.stringify({ success: false, error: error.message }),
-        { status: 500, headers: { "Content-Type": "application/json" } }
-      );
+
+      documents = files.map((file) => {
+        const filePath = path.join(docsDir, file);
+        const stats = fs.statSync(filePath);
+        return { name: file, chunks: 0, size: stats.size };
+      });
     }
-  }
 
-  // GET /api/health - 健康检查
-  if (method === "GET" && pathname === "/api/health") {
-    return new Response(
-      JSON.stringify({ success: true, message: "RAG Bot API is running" }),
-      { status: 200, headers: { "Content-Type": "application/json" } }
-    );
+    res.json({ success: true, documents });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
   }
+});
 
-  // 其他请求返回帮助信息
-  return new Response(
-    JSON.stringify({
-      success: false,
-      error: "Not Found",
-      available: ["/api/documents", "/api/health"],
-    }),
-    { status: 404, headers: { "Content-Type": "application/json" } }
-  );
-}
+// GET /api/health - 健康检查
+app.get("/api/health", (req, res) => {
+  res.json({ success: true, message: "RAG Bot API is running" });
+});
+
+export default app;
