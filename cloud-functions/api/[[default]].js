@@ -10,6 +10,24 @@ const app = express();
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true }));
 
+// 导入文档服务并初始化知识库
+import documentService from "../../backend/services/document.service.js";
+
+let initialized = false;
+
+async function ensureInitialized() {
+  if (!initialized) {
+    await documentService.initializeKnowledgeBase();
+    initialized = true;
+  }
+}
+
+// 初始化中间件 - 确保知识库在使用前已加载
+app.use(async (req, res, next) => {
+  await ensureInitialized();
+  next();
+});
+
 // 导入后端路由
 import documentRoutes from "../../backend/routes/document.routes.js";
 import chatRoutes from "../../backend/routes/chat.routes.js";
