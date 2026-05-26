@@ -3,12 +3,13 @@ import path from "path";
 
 const docsDir = path.resolve("./docs");
 
-export function onRequestGet(context) {
+export default function onRequest(context) {
   const url = new URL(context.request.url);
   const pathname = url.pathname;
+  const method = context.request.method;
 
   // GET /api/documents - 获取文档列表
-  if (pathname === "/api/documents") {
+  if (method === "GET" && pathname === "/api/documents") {
     try {
       let documents = [];
 
@@ -26,6 +27,7 @@ export function onRequestGet(context) {
       }
 
       return new Response(JSON.stringify({ success: true, documents }), {
+        status: 200,
         headers: { "Content-Type": "application/json" },
       });
     } catch (error) {
@@ -37,21 +39,20 @@ export function onRequestGet(context) {
   }
 
   // GET /api/health - 健康检查
-  if (pathname === "/api/health") {
+  if (method === "GET" && pathname === "/api/health") {
     return new Response(
       JSON.stringify({ success: true, message: "RAG Bot API is running" }),
-      { headers: { "Content-Type": "application/json" } }
+      { status: 200, headers: { "Content-Type": "application/json" } }
     );
   }
 
-  // 其他请求返回 404
-  return new Response("Not Found", { status: 404 });
-}
-
-export default function onRequest(context) {
-  if (context.request.method === "GET") {
-    return onRequestGet(context);
-  }
-
-  return new Response("Method Not Allowed", { status: 405 });
+  // 其他请求返回帮助信息
+  return new Response(
+    JSON.stringify({
+      success: false,
+      error: "Not Found",
+      available: ["/api/documents", "/api/health"],
+    }),
+    { status: 404, headers: { "Content-Type": "application/json" } }
+  );
 }
