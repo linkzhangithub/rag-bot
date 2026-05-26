@@ -2,5 +2,18 @@
   "buildCommand": "cd frontend && npm run build",
   "installCommand": "npm install && cd frontend && npm install",
   "outputDirectory": "./frontend/dist",
-  "nodeVersion": "18.20.4"
+  "nodeVersion": "18.20.4",
+  "cloudFunctions": {
+    "nodejs": {
+      "includeFiles": [
+        "backend/**",
+        "docs/**"
+      ],
+      "externalNodeModules": [
+        "pdf-parse",
+        "mammoth"
+      ],
+      "maxDuration": 60
+    }
+  }
 }
