@@ -1,6 +1,6 @@
 const https = require('https');
 const config = require('../config');
-const { retryWithBackoff } = require('../utils/retry-utils');
+const RetryUtils = require('../utils/retry-utils');
 
 /**
  * 向量嵌入服务
@@ -63,7 +63,7 @@ class EmbeddingService {
    * @returns {Promise<number[]>} 向量数组
    */
   async getEmbedding(text) {
-    return retryWithBackoff(
+    return RetryUtils.withBackoff(
       async () => {
         const response = await this.callZhipuAPI('/embeddings', {
           model: 'embedding-2',
