@@ -2,14 +2,15 @@
   "name": "rag-bot",
   "version": "1.0.0",
   "description": "通用知识库问答系统",
-  "main": "server.js",
+  "main": "serverless.js",
   "directories": {
     "doc": "docs"
   },
   "scripts": {
     "test": "jest backend/tests",
-    "start": "node backend/server.js",
+    "start": "node serverless.js",
     "dev": "cd frontend && npm run dev",
+    "build": "cd frontend && npm install && npm run build",
     "build:frontend": "cd frontend && npm run build",
     "preview": "cd frontend && npm run preview"
   },
