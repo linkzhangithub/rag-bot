@@ -1,18 +1,27 @@
 <template>
   <div class="document-list" :class="{ collapsed: collapsed }">
     <TransitionGroup name="list" tag="div" class="list-container">
-      <div 
-        v-for="document in documents" 
+      <div
+        v-for="document in documents"
         :key="document.name"
         class="document-item"
       >
         <div class="doc-icon" :title="document.name">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-            <polyline points="14,2 14,8 20,8"/>
-            <line x1="16" y1="13" x2="8" y2="13"/>
-            <line x1="16" y1="17" x2="8" y2="17"/>
-            <polyline points="10,9 9,9 8,9"/>
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.5"
+          >
+            <path
+              d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
+            />
+            <polyline points="14,2 14,8 20,8" />
+            <line x1="16" y1="13" x2="8" y2="13" />
+            <line x1="16" y1="17" x2="8" y2="17" />
+            <polyline points="10,9 9,9 8,9" />
           </svg>
         </div>
         <div class="doc-info">
@@ -23,16 +32,25 @@
             <span class="meta-segment">{{ formatSize(document.size) }}</span>
           </span>
         </div>
-        <button 
-          @click="handleDelete(document.name)" 
+        <button
+          @click="handleDelete(document.name)"
           class="delete-btn"
           :title="`删除 ${document.name}`"
         >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-            <polyline points="3,6 5,6 21,6"/>
-            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-            <line x1="10" y1="11" x2="10" y2="17"/>
-            <line x1="14" y1="11" x2="14" y2="17"/>
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.5"
+          >
+            <polyline points="3,6 5,6 21,6" />
+            <path
+              d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
+            />
+            <line x1="10" y1="11" x2="10" y2="17" />
+            <line x1="14" y1="11" x2="14" y2="17" />
           </svg>
         </button>
       </div>
@@ -40,9 +58,18 @@
 
     <div v-if="documents.length === 0 && !collapsed" class="empty-state">
       <div class="empty-icon">
-        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-          <polyline points="14,2 14,8 20,8"/>
+        <svg
+          width="40"
+          height="40"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+        >
+          <path
+            d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
+          />
+          <polyline points="14,2 14,8 20,8" />
         </svg>
       </div>
       <span class="empty-text">暂无文档</span>
@@ -61,78 +88,78 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
-import DeleteConfirmModal from './DeleteConfirmModal.vue'
+import { ref, watch } from "vue";
+import DeleteConfirmModal from "./DeleteConfirmModal.vue";
 
 const props = defineProps({
   documents: {
     type: Array,
-    default: () => []
+    default: () => [],
   },
   collapsed: {
     type: Boolean,
-    default: false
-  }
-})
+    default: false,
+  },
+});
 
-const emit = defineEmits(['delete'])
+const emit = defineEmits(["delete"]);
 
 // 删除弹窗状态
-const showDeleteModal = ref(false)
-const documentToDelete = ref('')
-const isDeleting = ref(false)
+const showDeleteModal = ref(false);
+const documentToDelete = ref("");
+const isDeleting = ref(false);
 
 function formatSize(bytes) {
-  if (!bytes) return '未知'
-  if (bytes < 1024) return bytes + ' B'
-  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
-  return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
+  if (!bytes) return "未知";
+  if (bytes < 1024) return bytes + " B";
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+  return (bytes / (1024 * 1024)).toFixed(1) + " MB";
 }
 
 async function handleDelete(name) {
-  if (!name || typeof name !== 'string') {
-    console.error('无效的文档名称:', name)
-    return
+  if (!name || typeof name !== "string") {
+    console.error("无效的文档名称:", name);
+    return;
   }
-  
-  documentToDelete.value = name
-  showDeleteModal.value = true
+
+  documentToDelete.value = name;
+  showDeleteModal.value = true;
 }
 
 // 确认删除
 function confirmDelete() {
-  if (!documentToDelete.value) return
-  isDeleting.value = true
-  emit('delete', documentToDelete.value)
+  if (!documentToDelete.value) return;
+  isDeleting.value = true;
+  emit("delete", documentToDelete.value);
 }
 
 // 取消删除
 function cancelDelete() {
-  resetDeleteState()
+  resetDeleteState();
 }
 
 // 重置删除状态
 function resetDeleteState() {
-  isDeleting.value = false
-  documentToDelete.value = ''
-  showDeleteModal.value = false
+  isDeleting.value = false;
+  documentToDelete.value = "";
+  showDeleteModal.value = false;
 }
 
 // 监听文档列表变化，删除成功后自动重置弹窗状态
-watch(() => props.documents, () => {
-  if (isDeleting.value) {
-    resetDeleteState()
-  }
-}, { deep: true })
+watch(
+  () => props.documents,
+  () => {
+    if (isDeleting.value) {
+      resetDeleteState();
+    }
+  },
+  { deep: true },
+);
 
 // 暴露方法给父组件
 defineExpose({
-  resetDeleteState
-})
-
-function isValidDocument(doc) {
-  return doc && typeof doc === 'object' && typeof doc.name === 'string' && doc.name.length > 0
-}
+  resetDeleteState,
+});
 </script>
 
 <style scoped>
@@ -278,7 +305,6 @@ function isValidDocument(doc) {
 
 .delete-btn:hover {
   background: rgba(239, 68, 68, 0.1);
-  opacity: 1;
 }
 
 .empty-state {
