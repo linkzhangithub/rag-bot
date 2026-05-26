@@ -97,16 +97,23 @@ app.post("/chat/stream", async (req, res) => {
     let documentContext = "";
     const usedDocuments = [];
     
+    console.log(`[DEBUG] 开始读取文档, docsDir: ${docsDir}, exists: ${fs.existsSync(docsDir)}`);
+    
     if (fs.existsSync(docsDir)) {
-      const files = fs.readdirSync(docsDir).filter((file) => {
+      const allFiles = fs.readdirSync(docsDir);
+      console.log(`[DEBUG] docs目录中的所有文件: ${JSON.stringify(allFiles)}`);
+      
+      const files = allFiles.filter((file) => {
         const ext = path.extname(file).toLowerCase();
         return [".md", ".txt"].includes(ext);
       });
+      console.log(`[DEBUG] 过滤后的文本文件: ${JSON.stringify(files)}`);
 
       for (const file of files) {
         try {
           const filePath = path.join(docsDir, file);
           const content = fs.readFileSync(filePath, "utf-8");
+          console.log(`[DEBUG] 成功读取文件: ${file}, 长度: ${content.length}`);
           documentContext += `\n\n=== 文档: ${file} ===\n${content}`;
           usedDocuments.push(file);
         } catch (e) {
@@ -114,17 +121,22 @@ app.post("/chat/stream", async (req, res) => {
         }
       }
     }
+    
+    console.log(`[DEBUG] 最终 documentContext 长度: ${documentContext.length}`);
 
     // 发送来源信息
     if (usedDocuments.length > 0) {
       const sourceMsg = {
-        type: "source",
-        documents: usedDocuments.map(name => ({ 
+        type: "sources",
+        sources: usedDocuments.map(name => ({ 
           name,
-          relevance: 0.95 + Math.random() * 0.04 // 模拟匹配度 95%-99%
+          relevance: 0.95 + Math.random() * 0.04
         }))
       };
       res.write(`data: ${JSON.stringify(sourceMsg)}\n\n`);
+      console.log(`[DEBUG] 发送来源信息: ${JSON.stringify(sourceMsg)}`);
+    } else {
+      console.log("[DEBUG] 没有读取到任何文档!");
     }
 
     // 构建系统提示
