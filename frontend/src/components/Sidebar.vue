@@ -45,14 +45,22 @@
         </svg>
         <h3>文档列表</h3>
         <span class="doc-count">{{ documents.length }}</span>
-        <button @click="onRefresh" class="refresh-btn" title="刷新文档列表" aria-label="刷新文档列表">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <button @click="onRefresh" class="refresh-btn" title="刷新文档列表" aria-label="刷新文档列表" :disabled="loading">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" :class="{ 'spinning': loading }">
             <polyline points="23 4 23 10 17 10"/>
             <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
           </svg>
         </button>
       </div>
-      <DocumentList :documents="documents" :collapsed="isCollapsed" @delete="$emit('delete-document', $event)" />
+      
+      <!-- 加载状态 -->
+      <div v-if="loading && !isCollapsed" class="loading-container">
+        <div class="loading-spinner"></div>
+        <span class="loading-text">加载中...</span>
+      </div>
+      
+      <!-- 文档列表 -->
+      <DocumentList v-else :documents="documents" :collapsed="isCollapsed" @delete="$emit('delete-document', $event)" />
     </div>
 
     <div v-if="!isCollapsed" class="sidebar-footer">
@@ -80,7 +88,8 @@ import '@/assets/styles/sidebar.css'
 const props = defineProps({
   documents: { type: Array, default: () => [] },
   collapsed: { type: Boolean, default: true },
-  mobileOpen: { type: Boolean, default: false }
+  mobileOpen: { type: Boolean, default: false },
+  loading: { type: Boolean, default: false } // 添加 loading 属性
 })
 
 const emit = defineEmits(['delete-document', 'upload-success', 'upload-error', 'toggle', 'refresh'])

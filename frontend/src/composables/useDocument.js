@@ -12,12 +12,14 @@ export function useDocument() {
   const documents = ref([])
   const uploading = ref(false)
   const uploadProgress = ref(0)
+  const loading = ref(false) // 添加加载状态
 
   /**
    * 加载文档列表
    * 优先从API获取，失败时使用预设文档列表
    */
   async function loadDocuments() {
+    loading.value = true // 开始加载
     try {
       const response = await getDocuments()
       const apiDocs = response.data.documents || []
@@ -31,6 +33,8 @@ export function useDocument() {
     } catch (error) {
       console.warn('加载文档失败，使用预设文档:', error.message)
       documents.value = PRESET_DOCUMENTS
+    } finally {
+      loading.value = false // 加载完成
     }
   }
 
@@ -79,6 +83,7 @@ export function useDocument() {
     documents,
     uploading,
     uploadProgress,
+    loading, // 导出加载状态
     loadDocuments,
     handleUpload,
     handleDelete

@@ -32,6 +32,7 @@
         :documents="documents"
         :collapsed="sidebarCollapsed"
         :mobile-open="sidebarOpen"
+        :loading="loading"
         @delete-document="handleDeleteDocument"
         @upload-success="handleUploadSuccess"
         @upload-error="handleUploadError"
@@ -79,7 +80,7 @@ const {
   isGenerating,
   sendMessage: sendChatMessage,
 } = useChatStream();
-const { documents, handleDelete, loadDocuments } = useDocument();
+const { documents, loading, handleDelete, loadDocuments } = useDocument(); // 添加 loading
 const { notification, success, error, close } = useNotification();
 
 const sidebarOpen = ref(false);
