@@ -77,8 +77,16 @@ app.get("/documents", (req, res) => {
     let documents = [];
     const uploadedDocsMap = new Map(); // 用于合并上传的文档
 
+    console.log('[DEBUG] GET /documents 被调用');
+    console.log(`[DEBUG] vectorSearcher 状态: ${vectorSearcher ? '已初始化' : '未初始化'}`);
+    
+    if (vectorSearcher) {
+      console.log(`[DEBUG] vectorSearcher.initialized: ${vectorSearcher.initialized}`);
+      console.log(`[DEBUG] vectorSearcher.vectors.length: ${vectorSearcher.vectors.length}`);
+    }
+
     // 1. 从向量检索器获取动态上传的文档
-    if (vectorSearcher && vectorSearcher.initialized) {
+    if (vectorSearcher && vectorSearcher.initialized && vectorSearcher.vectors.length > 0) {
       const stats = vectorSearcher.getStats();
       console.log(`[INFO] 当前向量库状态: ${stats.totalVectors} 个文本块`);
       
@@ -94,6 +102,8 @@ app.get("/documents", (req, res) => {
       });
       
       console.log(`[INFO] 已上传文档: ${Array.from(uploadedDocsMap.keys()).join(', ')}`);
+    } else {
+      console.log('[WARN] 向量检索器未初始化或为空');
     }
 
     // 2. 从文件系统获取预置文档
@@ -192,6 +202,16 @@ app.post("/documents", async (req, res) => {
 
     console.log(`[INFO] 开始处理上传文档: ${fileName}`);
 
+    // ⚠️ 重要：确保向量检索器已初始化
+    await initVectorSearcher();
+    
+    // 如果还是没有初始化，创建一个空的
+    if (!vectorSearcher) {
+      vectorSearcher = new VectorSearcher();
+      vectorSearcher.initialize([]);
+      console.log('[INFO] 创建了新的向量检索器实例');
+    }
+
     // 1. 简单的文本分块（每800字符一块，重叠200字符）
     const chunks = [];
     const chunkSize = 800;
@@ -251,11 +271,6 @@ app.post("/documents", async (req, res) => {
 
     // 3. 添加到向量检索器
     if (vectors.length > 0) {
-      if (!vectorSearcher) {
-        vectorSearcher = new VectorSearcher();
-        vectorSearcher.initialize([]);
-      }
-      
       // 将新向量添加到现有向量库
       vectors.forEach((vector, index) => {
         vectorSearcher.vectors.push({
@@ -267,6 +282,7 @@ app.post("/documents", async (req, res) => {
       vectorSearcher.initialized = true;
       
       console.log(`[INFO] 文档上传成功: ${fileName}, 共 ${vectors.length} 个文本块`);
+      console.log(`[INFO] 当前向量库总数: ${vectorSearcher.vectors.length} 个文本块`);
       
       res.json({
         success: true,
