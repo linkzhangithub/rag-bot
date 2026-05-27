@@ -75,13 +75,28 @@ async function initVectorSearcher() {
 app.get("/documents", (req, res) => {
   try {
     let documents = [];
+    const uploadedDocsMap = new Map(); // 用于合并上传的文档
 
-    // 从向量检索器获取动态上传的文档
+    // 1. 从向量检索器获取动态上传的文档
     if (vectorSearcher && vectorSearcher.initialized) {
       const stats = vectorSearcher.getStats();
       console.log(`[INFO] 当前向量库状态: ${stats.totalVectors} 个文本块`);
+      
+      // 提取所有上传文档的名称和文本块数
+      vectorSearcher.vectors.forEach(vector => {
+        const source = vector.metadata?.source;
+        if (source) {
+          if (!uploadedDocsMap.has(source)) {
+            uploadedDocsMap.set(source, { name: source, chunks: 0, size: 0, isUploaded: true });
+          }
+          uploadedDocsMap.get(source).chunks += 1;
+        }
+      });
+      
+      console.log(`[INFO] 已上传文档: ${Array.from(uploadedDocsMap.keys()).join(', ')}`);
     }
 
+    // 2. 从文件系统获取预置文档
     if (fs.existsSync(docsDir)) {
       const files = fs.readdirSync(docsDir);
       
@@ -103,10 +118,32 @@ app.get("/documents", (req, res) => {
         
         const chunks = content ? Math.ceil(content.length / 500) : 0;
         
-        return { name: file, chunks, size: stats.size };
+        return { 
+          name: file, 
+          chunks, 
+          size: stats.size,
+          isUploaded: false // 标记为预置文档
+        };
       });
     }
 
+    // 3. 合并上传的文档（如果不在预置列表中）
+    uploadedDocsMap.forEach((docInfo, fileName) => {
+      // 检查是否已经存在于预置文档中
+      const exists = documents.some(d => d.name === fileName);
+      if (!exists) {
+        // 估算大小（每字符约1字节）
+        const estimatedSize = docInfo.chunks * 800;
+        documents.push({
+          name: docInfo.name,
+          chunks: docInfo.chunks,
+          size: estimatedSize,
+          isUploaded: true
+        });
+      }
+    });
+
+    console.log(`[INFO] 返回文档列表: ${documents.length} 个文档`);
     res.json({ success: true, documents });
   } catch (error) {
     console.error("[ERROR] 获取文档失败:", error);
