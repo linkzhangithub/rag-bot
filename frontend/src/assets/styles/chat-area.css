@@ -333,6 +333,8 @@
   width: 100%;
   max-width: 520px;
   box-sizing: border-box;
+  /* 固定宽度，避免闪烁效果 */
+  min-width: 280px;
 }
 
 .sources-header {
@@ -359,6 +361,8 @@
   background: var(--card-bg);
   border: 1px solid var(--accent-border);
   border-radius: 6px;
+  /* 固定最小宽度，确保一开始就显示完整 */
+  min-width: 240px;
 }
 
 .source-index {

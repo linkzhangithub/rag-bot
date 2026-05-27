@@ -35,7 +35,9 @@
         <button
           @click="handleDelete(document.name)"
           class="delete-btn"
-          :title="`删除 ${document.name}`"
+          :class="{ 'disabled': !document.isUploaded }"
+          :title="document.isUploaded ? `删除 ${document.name}` : '预置文档不可删除'"
+          :disabled="!document.isUploaded"
         >
           <svg
             width="16"
@@ -119,6 +121,14 @@ function formatSize(bytes) {
 async function handleDelete(name) {
   if (!name || typeof name !== "string") {
     console.error("无效的文档名称:", name);
+    return;
+  }
+
+  // 查找文档对象，检查是否为预置文档
+  const doc = props.documents.find(d => d.name === name);
+  if (doc && !doc.isUploaded) {
+    console.warn(`[WARN] 尝试删除预置文档: ${name}`);
+    // 不显示弹窗，直接返回
     return;
   }
 
@@ -311,8 +321,18 @@ defineExpose({
   flex-shrink: 0;
 }
 
-.delete-btn:hover {
+.delete-btn:hover:not(.disabled) {
   background: rgba(239, 68, 68, 0.1);
+}
+
+.delete-btn.disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  color: var(--text);
+}
+
+.document-item:hover .delete-btn.disabled {
+  opacity: 0.3;
 }
 
 .empty-state {
