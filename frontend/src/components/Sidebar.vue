@@ -31,7 +31,12 @@
     </div>
 
     <div v-if="!isCollapsed" class="upload-section">
-      <DocumentUpload @upload-success="onUploadSuccess" @upload-error="onUploadError" />
+      <DocumentUpload 
+        :uploading="props.uploading"
+        :upload-progress="props.uploadProgress"
+        @upload="$emit('upload', $event)" 
+        @upload-error="$emit('upload-error', $event)" 
+      />
     </div>
 
     <div class="documents-section">
@@ -89,7 +94,9 @@ const props = defineProps({
   documents: { type: Array, default: () => [] },
   collapsed: { type: Boolean, default: true },
   mobileOpen: { type: Boolean, default: false },
-  loading: { type: Boolean, default: false } // 添加 loading 属性
+  loading: { type: Boolean, default: false }, // 添加 loading 属性
+  uploading: { type: Boolean, default: false }, // 添加 uploading 属性
+  uploadProgress: { type: Number, default: 0 } // 添加 uploadProgress 属性
 })
 
 const emit = defineEmits(['delete-document', 'upload-success', 'upload-error', 'toggle', 'refresh'])
@@ -103,7 +110,5 @@ const totalChunks = computed(() => {
 
 function openSidebar() { emit('toggle', true) }
 function closeSidebar() { emit('toggle', false) }
-function onUploadSuccess() { emit('upload-success') }
-function onUploadError(message) { emit('upload-error', message) }
 function onRefresh() { emit('refresh') }
 </script>

@@ -1,7 +1,7 @@
 <template>
   <div 
     class="upload-container"
-    :class="{ 'drag-over': isDragOver, 'uploading': isUploading }"
+    :class="{ 'drag-over': isDragOver, 'uploading': props.uploading }"
     @dragover.prevent="onDragOver"
     @dragleave="onDragLeave"
     @drop.prevent="onDrop"
@@ -11,10 +11,10 @@
         type="file" 
         accept=".md,.txt,.pdf,.docx" 
         @change="onFileSelect"
-        :disabled="isUploading"
+        :disabled="props.uploading"
         class="file-input"
       />
-      <div class="upload-content" v-if="!isUploading">
+      <div class="upload-content" v-if="!props.uploading">
         <div class="upload-icon">
           <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
@@ -31,40 +31,30 @@
         <div class="spinner"></div>
         <div class="uploading-text">正在处理...</div>
         <div class="progress-container">
-          <div class="progress-bar" :style="{ width: uploadProgress + '%' }"></div>
+          <div class="progress-bar" :style="{ width: props.uploadProgress + '%' }"></div>
         </div>
       </div>
     </label>
-
-    <Transition name="fade">
-      <div v-if="showSuccess" class="success-toast">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-          <polyline points="22,4 12,14.01 9,11.01"/>
-        </svg>
-        <span>{{ successMessage }}</span>
-      </div>
-    </Transition>
   </div>
 </template>
 
 <script setup>
 import { ref, onUnmounted } from 'vue'
-import { uploadDocument } from '../api/document.api'
 
-const emit = defineEmits(['upload-success', 'upload-error'])
+const props = defineProps({
+  uploading: { type: Boolean, default: false },
+  uploadProgress: { type: Number, default: 0 }
+})
+
+const emit = defineEmits(['upload', 'upload-error'])
 
 const isDragOver = ref(false)
-const isUploading = ref(false)
-const uploadProgress = ref(0)
-const showSuccess = ref(false)
-const successMessage = ref('')
 let uploadInterval = null
 
 async function onFileSelect(event) {
   const file = event.target.files[0]
   if (!file) return
-  await handleUpload(file)
+  emit('upload', file)  // 向父组件发送上传事件
   event.target.value = ''
 }
 
@@ -72,7 +62,7 @@ async function onDrop(event) {
   isDragOver.value = false
   const file = event.dataTransfer.files[0]
   if (!file) return
-  await handleUpload(file)
+  emit('upload', file)  // 向父组件发送上传事件
 }
 
 function onDragOver() {
@@ -81,50 +71,6 @@ function onDragOver() {
 
 function onDragLeave() {
   isDragOver.value = false
-}
-
-async function handleUpload(file) {
-  isUploading.value = true
-  uploadProgress.value = 0
-
-  try {
-    uploadInterval = setInterval(() => {
-      if (uploadProgress.value < 90) {
-        uploadProgress.value += Math.random() * 15
-      }
-    }, 200)
-
-    const response = await uploadDocument(file)
-
-    if (uploadInterval) {
-      clearInterval(uploadInterval)
-      uploadInterval = null
-    }
-
-    if (response.data.success) {
-      uploadProgress.value = 100
-      successMessage.value = `已上传 ${file.name}`
-      showSuccess.value = true
-      emit('upload-success')
-
-      setTimeout(() => {
-        showSuccess.value = false
-        uploadProgress.value = 0
-        isUploading.value = false
-      }, 2000)
-    } else {
-      throw new Error(response.data.error || '上传失败')
-    }
-  } catch (error) {
-    console.error('上传失败:', error)
-    if (uploadInterval) {
-      clearInterval(uploadInterval)
-      uploadInterval = null
-    }
-    emit('upload-error', error.message)
-    isUploading.value = false
-    uploadProgress.value = 0
-  }
 }
 
 onUnmounted(() => {

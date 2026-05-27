@@ -33,8 +33,10 @@
         :collapsed="sidebarCollapsed"
         :mobile-open="sidebarOpen"
         :loading="loading"
+        :uploading="uploading"
+        :upload-progress="uploadProgress"
         @delete-document="handleDeleteDocument"
-        @upload-success="handleUploadSuccess"
+        @upload="handleUploadFile"
         @upload-error="handleUploadError"
         @toggle="handleSidebarToggle"
         @refresh="handleRefreshDocuments"
@@ -80,7 +82,7 @@ const {
   isGenerating,
   sendMessage: sendChatMessage,
 } = useChatStream();
-const { documents, loading, handleDelete, loadDocuments } = useDocument(); // 添加 loading
+const { documents, uploading, uploadProgress, loading, handleUpload, handleDelete, loadDocuments } = useDocument();
 const { notification, success, error, close } = useNotification();
 
 const sidebarOpen = ref(false);
@@ -122,9 +124,13 @@ const handleDeleteDocument = async (name) => {
   }
 };
 
-const handleUploadSuccess = () => {
-  loadDocuments();
-  success("文档上传成功");
+const handleUploadFile = async (file) => {
+  try {
+    await handleUpload(file);
+    success(`文档 "${file.name}" 上传成功`);
+  } catch (err) {
+    error("上传失败: " + err.message);
+  }
 };
 
 const handleUploadError = (message) => {
