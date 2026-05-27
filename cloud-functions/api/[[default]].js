@@ -304,15 +304,29 @@ app.post("/documents", async (req, res) => {
 });
 
 // DELETE /documents/:name - 删除文档（仅删除内存中的向量）
-app.delete("/documents/:name", (req, res) => {
+app.delete("/documents/:name", async (req, res) => {
   try {
     const fileName = decodeURIComponent(req.params.name);
     
+    console.log(`[DEBUG] DELETE /documents/${fileName} 被调用`);
+    console.log(`[DEBUG] vectorSearcher 状态: ${vectorSearcher ? '已创建' : '未创建'}`);
+    
+    if (vectorSearcher) {
+      console.log(`[DEBUG] vectorSearcher.initialized: ${vectorSearcher.initialized}`);
+      console.log(`[DEBUG] vectorSearcher.vectors.length: ${vectorSearcher.vectors.length}`);
+    }
+    
+    // 如果向量检索器未初始化，尝试初始化
     if (!vectorSearcher || !vectorSearcher.initialized) {
-      return res.status(404).json({
-        success: false,
-        error: "向量检索器未初始化",
-      });
+      console.log('[INFO] 向量检索器未初始化，正在初始化...');
+      await initVectorSearcher();
+      
+      // 如果还是没有初始化，创建一个空的
+      if (!vectorSearcher) {
+        vectorSearcher = new VectorSearcher();
+        vectorSearcher.initialize([]);
+        console.log('[INFO] 创建了新的空向量检索器实例');
+      }
     }
 
     // 过滤掉该文档的所有向量

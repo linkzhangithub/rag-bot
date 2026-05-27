@@ -119,8 +119,12 @@ const handleDeleteDocument = async (name) => {
   try {
     await handleDelete(name);
     success(`文档 "${name}" 删除成功`);
+    // loadDocuments() 已经在 handleDelete 中调用，会触发 DocumentList 的 watch 重置状态
   } catch (err) {
+    console.error('删除失败:', err);
     error("删除失败: " + err.message);
+    // 即使失败，也要重新加载文档列表，触发 watch 重置弹窗状态
+    await loadDocuments();
   }
 };
 

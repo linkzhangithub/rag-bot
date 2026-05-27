@@ -131,6 +131,14 @@ function confirmDelete() {
   if (!documentToDelete.value) return;
   isDeleting.value = true;
   emit("delete", documentToDelete.value);
+  
+  // 设置超时保护，防止一直转圈
+  setTimeout(() => {
+    if (isDeleting.value) {
+      console.warn('[WARN] 删除操作超时，自动重置状态');
+      resetDeleteState();
+    }
+  }, 5000); // 5秒超时
 }
 
 // 取消删除
