@@ -6,7 +6,8 @@
   "cloudFunctions": {
     "nodejs": {
       "includeFiles": [
-        "docs/**"
+        "docs/**",
+        "backend/data/**"
       ],
       "maxDuration": 60
     }

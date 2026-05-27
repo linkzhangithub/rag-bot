@@ -1,16 +1,21 @@
 import express from "express";
 import fs from "fs";
 import path from "path";
+import { VectorSearcher } from "./vector-search.js";
 
 /**
  * RAG Bot API - EdgeOne 云函数版本
  * 
- * 注意：这是演示版本，使用简化的全文检索方案
+ * 注意：这是演示版本，使用预计算的向量进行检索
  * 生产环境建议使用腾讯云 VectorDB 实现真正的向量检索
  */
 
 const app = express();
 const docsDir = path.resolve("./docs");
+
+// 初始化向量检索器（懒加载）
+let vectorSearcher = null;
+let vectorSearcherInitializing = false;
 
 // 中间件
 app.use(express.json({ limit: "50mb" }));
@@ -20,6 +25,51 @@ app.use((req, res, next) => {
   console.log(`[DEBUG] ${req.method} ${req.url}`);
   next();
 });
+
+// 初始化向量检索器（懒加载）
+async function initVectorSearcher() {
+  if (vectorSearcher || vectorSearcherInitializing) {
+    return;
+  }
+  
+  vectorSearcherInitializing = true;
+  
+  try {
+    // 尝试从多个位置加载向量数据
+    const possiblePaths = [
+      path.resolve('./backend/data/vector-store.json'),
+      path.resolve('../backend/data/vector-store.json'),
+      path.resolve('../../backend/data/vector-store.json'),
+    ];
+    
+    let vectorDataPath = null;
+    for (const p of possiblePaths) {
+      if (fs.existsSync(p)) {
+        vectorDataPath = p;
+        break;
+      }
+    }
+    
+    if (!vectorDataPath) {
+      console.warn('[WARN] 未找到向量数据文件，将使用全文检索模式');
+      vectorSearcherInitializing = false;
+      return;
+    }
+    
+    console.log(`[INFO] 正在加载向量数据: ${vectorDataPath}`);
+    const vectorData = JSON.parse(fs.readFileSync(vectorDataPath, 'utf-8'));
+    
+    vectorSearcher = new VectorSearcher();
+    vectorSearcher.initialize(vectorData);
+    
+    console.log(`[INFO] 向量检索器初始化成功: ${vectorSearcher.getStats().totalVectors} 个文本块`);
+  } catch (error) {
+    console.error('[ERROR] 初始化向量检索器失败:', error.message);
+    vectorSearcher = null;
+  } finally {
+    vectorSearcherInitializing = false;
+  }
+}
 
 // GET /documents - 获取文档列表
 app.get("/documents", (req, res) => {
@@ -89,47 +139,97 @@ app.post("/chat/stream", async (req, res) => {
       return;
     }
 
-    // 读取所有文档内容作为上下文
-    let documentContext = "";
-    const usedDocuments = [];
-    
-    if (fs.existsSync(docsDir)) {
-      const files = fs.readdirSync(docsDir).filter((file) => {
-        const ext = path.extname(file).toLowerCase();
-        return [".md", ".txt"].includes(ext);
-      });
+    // 初始化向量检索器（如果尚未初始化）
+    await initVectorSearcher();
 
-      for (const file of files) {
-        try {
-          const filePath = path.join(docsDir, file);
-          const content = fs.readFileSync(filePath, "utf-8");
-          documentContext += `\n\n=== 文档: ${file} ===\n${content}`;
-          usedDocuments.push(file);
-        } catch (e) {
-          console.error(`[ERROR] 读取文件失败: ${file}`, e.message);
+    let relevantDocs = [];
+    const usedDocuments = [];
+
+    // 尝试使用向量检索
+    if (vectorSearcher) {
+      try {
+        // 1. 将问题转换为向量
+        const embeddingResponse = await fetch("https://open.bigmodel.cn/api/paas/v4/embeddings", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify({
+            model: "embedding-2",
+            input: question,
+          }),
+        });
+
+        const embeddingData = await embeddingResponse.json();
+        const queryEmbedding = embeddingData.data[0].embedding;
+
+        // 2. 向量检索
+        relevantDocs = vectorSearcher.search(queryEmbedding, 5, 0.25);
+        
+        console.log(`[INFO] 向量检索找到 ${relevantDocs.length} 个相关文本块`);
+        
+        // 提取文档名称（去重）
+        const docNamesSet = new Set();
+        relevantDocs.forEach(doc => {
+          if (doc.metadata && doc.metadata.source) {
+            docNamesSet.add(doc.metadata.source);
+          }
+        });
+        usedDocuments.push(...Array.from(docNamesSet));
+      } catch (error) {
+        console.error('[ERROR] 向量检索失败，降级为全文检索:', error.message);
+        // 降级为全文检索
+      }
+    }
+
+    // 如果没有找到相关文档，使用全文检索作为后备
+    if (relevantDocs.length === 0) {
+      console.log('[WARN] 使用全文检索模式');
+      if (fs.existsSync(docsDir)) {
+        const files = fs.readdirSync(docsDir).filter((file) => {
+          const ext = path.extname(file).toLowerCase();
+          return [".md", ".txt"].includes(ext);
+        });
+
+        for (const file of files) {
+          try {
+            const filePath = path.join(docsDir, file);
+            const content = fs.readFileSync(filePath, "utf-8");
+            relevantDocs.push({
+              content: content.substring(0, 2000), // 限制长度
+              metadata: { source: file }
+            });
+            usedDocuments.push(file);
+          } catch (e) {
+            console.error(`[ERROR] 读取文件失败: ${file}`, e.message);
+          }
         }
       }
     }
 
-    // 发送来源信息（基于文档相关性排序）
-    if (usedDocuments.length > 0) {
+    // 发送来源信息（使用真实的相似度分数）
+    if (relevantDocs.length > 0) {
       const sourceMsg = {
         type: "sources",
-        sources: usedDocuments.map((name, index) => ({ 
-          name,
-          // 基于文档顺序给出递减的相关性分数（第一个最相关）
-          score: parseFloat((0.95 - index * 0.05).toFixed(2))
+        sources: relevantDocs.map((doc, index) => ({ 
+          name: doc.metadata?.source || `文档片段${index + 1}`,
+          score: parseFloat(doc.similarity.toFixed(4)) // 真实的相似度分数
         }))
       };
       res.write(`data: ${JSON.stringify(sourceMsg)}\n\n`);
     }
 
-    // 构建系统提示（使用实际文档名）
+    // 构建系统提示（使用实际检索到的文档）
     const docNames = usedDocuments.length > 0 
       ? usedDocuments.join("、") 
       : "无可用文档";
       
-    const systemPrompt = `你是一个专业的RAG智能问答助手。请基于以下参考文档内容回答用户的问题。
+    const documentContext = relevantDocs
+      .map((doc, idx) => `【参考文档${idx + 1}】\n${doc.content.substring(0, 1500)}`)
+      .join('\n\n');
+      
+    const systemPrompt = `你是一个专业的RAG智能问答助手。请严格基于以下参考文档内容回答用户的问题。
 
 参考文档：
 ${documentContext || "（暂无可用文档）"}
@@ -137,8 +237,8 @@ ${documentContext || "（暂无可用文档）"}
 本次回答参考的文档：${docNames}
 
 回答要求：
-1. 优先基于上述文档内容回答，可以进行合理的逻辑推理和总结
-2. 如果文档中没有相关信息，可以结合你的通用知识进行回答，但要明确说明
+1. 必须基于上述文档内容回答，不要编造文档中没有的信息
+2. 如果文档中没有相关信息，请明确说明“参考文档中未找到相关信息”
 3. 回答要简洁、准确、有条理，适当使用列表形式
 4. 在回答中自然地引用相关文档的内容
 5. 使用中文回答`;
