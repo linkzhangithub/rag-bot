@@ -8,6 +8,9 @@ const PRESET_DOCUMENTS = [
   { name: '脑机接口技术.docx', chunks: 12, size: 8192 }
 ]
 
+// localStorage key
+const UPLOADED_DOCS_KEY = 'rag-bot-uploaded-docs'
+
 export function useDocument() {
   const documents = ref([])
   const uploading = ref(false)
@@ -15,8 +18,33 @@ export function useDocument() {
   const loading = ref(false) // 添加加载状态
 
   /**
+   * 从 localStorage 获取上传的文档列表
+   */
+  function getUploadedDocsFromStorage() {
+    try {
+      const stored = localStorage.getItem(UPLOADED_DOCS_KEY)
+      return stored ? JSON.parse(stored) : []
+    } catch (error) {
+      console.error('读取 localStorage 失败:', error)
+      return []
+    }
+  }
+
+  /**
+   * 保存上传的文档列表到 localStorage
+   */
+  function saveUploadedDocsToStorage(docs) {
+    try {
+      localStorage.setItem(UPLOADED_DOCS_KEY, JSON.stringify(docs))
+    } catch (error) {
+      console.error('保存 localStorage 失败:', error)
+    }
+  }
+
+  /**
    * 加载文档列表
    * 优先从API获取，失败时使用预设文档列表
+   * 合并 localStorage 中上传的文档
    */
   async function loadDocuments() {
     loading.value = true // 开始加载
@@ -25,14 +53,26 @@ export function useDocument() {
       const apiDocs = response.data.documents || []
       
       // 如果API返回了文档且不为空，使用API数据；否则使用预设文档
-      if (apiDocs.length > 0) {
-        documents.value = apiDocs
-      } else {
-        documents.value = PRESET_DOCUMENTS
-      }
+      let baseDocs = apiDocs.length > 0 ? apiDocs : PRESET_DOCUMENTS
+      
+      // 从 localStorage 获取上传的文档
+      const uploadedDocs = getUploadedDocsFromStorage()
+      
+      // 合并文档列表（去重）
+      const uploadedNames = new Set(uploadedDocs.map(d => d.name))
+      const mergedDocs = [
+        ...baseDocs.filter(d => !uploadedNames.has(d.name)),
+        ...uploadedDocs
+      ]
+      
+      documents.value = mergedDocs
+      console.log(`[INFO] 加载文档完成: ${mergedDocs.length} 个文档 (${baseDocs.length} 预置 + ${uploadedDocs.length} 上传)`)
     } catch (error) {
       console.warn('加载文档失败，使用预设文档:', error.message)
-      documents.value = PRESET_DOCUMENTS
+      
+      // 即使 API 失败，也要显示上传的文档
+      const uploadedDocs = getUploadedDocsFromStorage()
+      documents.value = [...PRESET_DOCUMENTS, ...uploadedDocs]
     } finally {
       loading.value = false // 加载完成
     }
@@ -48,7 +88,27 @@ export function useDocument() {
     try {
       const response = await uploadDocument(file)
       uploadProgress.value = 100
+      
+      // 上传成功后，将文档信息保存到 localStorage
+      const uploadedDocs = getUploadedDocsFromStorage()
+      const newDoc = {
+        name: file.name,
+        chunks: response.data.chunkCount || 1,
+        size: file.size,
+        isUploaded: true,
+        uploadedAt: new Date().toISOString()
+      }
+      
+      // 去重：如果已存在同名文档，先删除旧的
+      const filtered = uploadedDocs.filter(d => d.name !== file.name)
+      const updatedDocs = [...filtered, newDoc]
+      
+      saveUploadedDocsToStorage(updatedDocs)
+      console.log(`[INFO] 文档已保存到 localStorage: ${file.name}`)
+      
+      // 重新加载文档列表
       await loadDocuments()
+      
       return response.data
     } catch (error) {
       console.error('上传失败:', error)
@@ -67,6 +127,14 @@ export function useDocument() {
   async function handleDelete(name) {
     try {
       await deleteDocument(name)
+      
+      // 从 localStorage 中移除
+      const uploadedDocs = getUploadedDocsFromStorage()
+      const filtered = uploadedDocs.filter(d => d.name !== name)
+      saveUploadedDocsToStorage(filtered)
+      console.log(`[INFO] 已从 localStorage 删除: ${name}`)
+      
+      // 重新加载文档列表
       await loadDocuments()
     } catch (error) {
       console.error('删除失败:', error)
