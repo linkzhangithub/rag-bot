@@ -25,14 +25,24 @@ export function getDocuments() {
 /**
  * 上传文档
  */
-export function uploadDocument(file) {
-  const formData = new FormData()
-  formData.append('file', file)
-  return api.post('/documents', formData, {
+export async function uploadDocument(file) {
+  // 读取文件内容
+  const content = await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => resolve(e.target.result);
+    reader.onerror = (e) => reject(e);
+    reader.readAsText(file);
+  });
+
+  // 发送 JSON 格式
+  return api.post('/documents', {
+    fileName: file.name,
+    content: content
+  }, {
     headers: {
-      'Content-Type': 'multipart/form-data'
+      'Content-Type': 'application/json'
     }
-  })
+  });
 }
 
 /**

@@ -114,10 +114,29 @@ app.get("/documents", (req, res) => {
   }
 });
 
-// POST /documents/upload - 上传文档（临时存储，刷新后丢失）
-app.post("/documents/upload", async (req, res) => {
+// POST /documents - 上传文档（支持 FormData 和 JSON）
+app.post("/documents", async (req, res) => {
   try {
-    const { fileName, content } = req.body;
+    let fileName, content;
+
+    // 判断请求类型
+    const contentType = req.headers['content-type'] || '';
+    
+    if (contentType.includes('multipart/form-data')) {
+      // FormData 格式（前端默认）
+      // 注意：EdgeOne 云函数可能不支持 multer，需要手动解析
+      // 这里我们要求前端使用 JSON 格式
+      return res.status(400).json({
+        success: false,
+        error: "请使用 JSON 格式上传，Content-Type: application/json",
+        hint: "发送 { fileName: 'xxx.txt', content: '文档内容' }"
+      });
+    } else {
+      // JSON 格式
+      const { fileName: reqFileName, content: reqContent } = req.body;
+      fileName = reqFileName;
+      content = reqContent;
+    }
     
     if (!fileName || !content) {
       return res.status(400).json({ 
