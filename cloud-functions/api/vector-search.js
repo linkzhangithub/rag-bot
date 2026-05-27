@@ -36,7 +36,7 @@ function cosineSimilarity(vecA, vecB) {
  */
 class VectorSearcher {
   constructor() {
-    this.vectors = []; // 存储所有文档向量
+    this.vectors = []; // 存储所有文档向量（公开属性，允许外部修改）
     this.initialized = false;
   }
 

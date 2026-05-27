@@ -76,6 +76,12 @@ app.get("/documents", (req, res) => {
   try {
     let documents = [];
 
+    // 从向量检索器获取动态上传的文档
+    if (vectorSearcher && vectorSearcher.initialized) {
+      const stats = vectorSearcher.getStats();
+      console.log(`[INFO] 当前向量库状态: ${stats.totalVectors} 个文本块`);
+    }
+
     if (fs.existsSync(docsDir)) {
       const files = fs.readdirSync(docsDir);
       
@@ -104,6 +110,159 @@ app.get("/documents", (req, res) => {
     res.json({ success: true, documents });
   } catch (error) {
     console.error("[ERROR] 获取文档失败:", error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// POST /documents/upload - 上传文档（临时存储，刷新后丢失）
+app.post("/documents/upload", async (req, res) => {
+  try {
+    const { fileName, content } = req.body;
+    
+    if (!fileName || !content) {
+      return res.status(400).json({ 
+        success: false, 
+        error: "缺少文件名或内容" 
+      });
+    }
+
+    const apiKey = process.env.ZHIPU_API_KEY;
+    if (!apiKey) {
+      return res.status(500).json({ 
+        success: false, 
+        error: "未配置 API Key" 
+      });
+    }
+
+    console.log(`[INFO] 开始处理上传文档: ${fileName}`);
+
+    // 1. 简单的文本分块（每800字符一块，重叠200字符）
+    const chunks = [];
+    const chunkSize = 800;
+    const overlap = 200;
+    
+    for (let i = 0; i < content.length; i += chunkSize - overlap) {
+      const chunk = content.substring(i, i + chunkSize);
+      if (chunk.trim()) {
+        chunks.push(chunk);
+      }
+    }
+
+    console.log(`[INFO] 文档分块完成: ${chunks.length} 个文本块`);
+
+    // 2. 批量向量化
+    const vectors = [];
+    for (let i = 0; i < chunks.length; i++) {
+      try {
+        const embeddingResponse = await fetch(
+          "https://open.bigmodel.cn/api/paas/v4/embeddings",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${apiKey}`,
+            },
+            body: JSON.stringify({
+              model: "embedding-2",
+              input: chunks[i],
+            }),
+          }
+        );
+
+        const embeddingData = await embeddingResponse.json();
+        
+        if (embeddingData.data && embeddingData.data[0]) {
+          vectors.push({
+            content: chunks[i],
+            embedding: embeddingData.data[0].embedding,
+            metadata: {
+              source: fileName,
+              chunkIndex: i,
+            },
+          });
+          
+          console.log(`[INFO] 已向量化第 ${i + 1}/${chunks.length} 个文本块`);
+        }
+
+        // 避免 API 限流，每次请求间隔 100ms
+        if (i < chunks.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+      } catch (error) {
+        console.error(`[ERROR] 向量化第 ${i} 个文本块失败:`, error.message);
+      }
+    }
+
+    // 3. 添加到向量检索器
+    if (vectors.length > 0) {
+      if (!vectorSearcher) {
+        vectorSearcher = new VectorSearcher();
+        vectorSearcher.initialize([]);
+      }
+      
+      // 将新向量添加到现有向量库
+      vectors.forEach((vector, index) => {
+        vectorSearcher.vectors.push({
+          id: vectorSearcher.vectors.length,
+          ...vector,
+        });
+      });
+      
+      vectorSearcher.initialized = true;
+      
+      console.log(`[INFO] 文档上传成功: ${fileName}, 共 ${vectors.length} 个文本块`);
+      
+      res.json({
+        success: true,
+        message: `文档上传成功`,
+        fileName,
+        chunkCount: vectors.length,
+        totalVectors: vectorSearcher.getStats().totalVectors,
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        error: "向量化失败，未生成任何向量",
+      });
+    }
+  } catch (error) {
+    console.error("[ERROR] 上传文档失败:", error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// DELETE /documents/:name - 删除文档（仅删除内存中的向量）
+app.delete("/documents/:name", (req, res) => {
+  try {
+    const fileName = decodeURIComponent(req.params.name);
+    
+    if (!vectorSearcher || !vectorSearcher.initialized) {
+      return res.status(404).json({
+        success: false,
+        error: "向量检索器未初始化",
+      });
+    }
+
+    // 过滤掉该文档的所有向量
+    const beforeCount = vectorSearcher.vectors.length;
+    vectorSearcher.vectors = vectorSearcher.vectors.filter(
+      (v) => v.metadata?.source !== fileName
+    );
+    const afterCount = vectorSearcher.vectors.length;
+    const removedCount = beforeCount - afterCount;
+
+    console.log(
+      `[INFO] 已删除文档: ${fileName}, 移除 ${removedCount} 个文本块`
+    );
+
+    res.json({
+      success: true,
+      message: `已删除文档: ${fileName}`,
+      removedChunks: removedCount,
+      remainingVectors: afterCount,
+    });
+  } catch (error) {
+    console.error("[ERROR] 删除文档失败:", error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
