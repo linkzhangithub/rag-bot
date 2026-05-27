@@ -142,7 +142,7 @@ onUnmounted(() => {
   background: var(--accent-bg);
   position: relative;
   transition: all 0.15s ease;
-  min-height: 120px;
+  height: 120px;
   display: flex;
   align-items: center;
   justify-content: center;

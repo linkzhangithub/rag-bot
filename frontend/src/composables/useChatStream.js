@@ -83,17 +83,7 @@ export function useChatStream() {
       
       // 添加错误消息
       const lastMessage = messages.value[messages.value.length - 1]
-      if (lastMessage) {
-        lastMessage.content = `错误：${error.message}`
-      } else {
-        // 如果没有任何消息，创建一条错误消息
-        messages.value.push({
-          role: 'assistant',
-          content: `错误：${error.message}`,
-          sources: [],
-          timestamp: new Date()
-        })
-      }
+      lastMessage.content = `错误：${error.message}`
     }
   }
 

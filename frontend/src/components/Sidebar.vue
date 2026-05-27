@@ -73,8 +73,8 @@
 
 <script setup>
 import { computed } from 'vue'
-import DocumentUpload from './DocumentUpload.vue'
-import DocumentList from './DocumentList.vue'
+import DocumentUpload from '@/components/DocumentUpload.vue'
+import DocumentList from '@/components/DocumentList.vue'
 import '@/assets/styles/sidebar.css'
 
 const props = defineProps({

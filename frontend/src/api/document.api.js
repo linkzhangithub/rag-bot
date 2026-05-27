@@ -1,7 +1,7 @@
 import axios from 'axios'
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || '/api',
+  baseURL: '/api',
   timeout: 30000
 })
 
@@ -40,11 +40,4 @@ export function uploadDocument(file) {
  */
 export function deleteDocument(name) {
   return api.delete(`/documents/${encodeURIComponent(name)}`)
-}
-
-/**
- * 刷新文档
- */
-export function refreshDocuments() {
-  return api.post('/documents/refresh')
 }

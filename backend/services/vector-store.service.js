@@ -12,13 +12,6 @@ class VectorStore {
   }
 
   /**
-   * 重新加载数据
-   */
-  reload() {
-    this.data = this.load();
-  }
-
-  /**
    * 从文件加载数据
    * @returns {Array} 向量数据数组
    */
@@ -78,21 +71,6 @@ class VectorStore {
     const removedCount = beforeCount - this.data.length;
     if (removedCount > 0) {
       this.save();
-      
-      // 删除 docs 目录中对应的源文件（仅尝试，不影响删除操作）
-      const docsDir = path.resolve(__dirname, '../../docs');
-      const sourceFilePath = path.join(docsDir, source);
-      try {
-        if (fs.existsSync(sourceFilePath)) {
-          fs.unlinkSync(sourceFilePath);
-          console.log(`已删除源文件: ${sourceFilePath}`);
-        } else {
-          console.log(`源文件不存在于 docs 目录: ${sourceFilePath}`);
-        }
-      } catch (error) {
-        console.error(`删除源文件失败: ${error.message}`);
-        // 源文件删除失败不影响向量数据删除
-      }
     }
     return removedCount;
   }
@@ -107,18 +85,15 @@ class VectorStore {
 
   /**
    * 获取文档列表（按来源分组）
-   * @returns {Array} 文档列表 [{ name, chunks, size }]
+   * @returns {Array} 文档列表 [{ name, chunks }]
    */
   getDocumentList() {
     const docMap = new Map();
 
     for (const doc of this.data) {
       const name = doc.metadata.source;
-      
       if (!docMap.has(name)) {
-        // 只取第一个块的 size 值，确保文件大小获取一致
-        const size = doc.metadata.size || 0;
-        docMap.set(name, { name, chunks: 0, size });
+        docMap.set(name, { name, chunks: 0 });
       }
       docMap.get(name).chunks++;
     }

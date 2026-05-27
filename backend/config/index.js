@@ -1,12 +1,18 @@
+const path = require('path');
 const dotenv = require('dotenv');
 
-dotenv.config();
+dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
 const config = {
   port: process.env.PORT || 3000,
   
   // 智谱 AI
   zhipuApiKey: process.env.ZHIPU_API_KEY,
+  
+  // 讯飞语音
+  xunfeiAppId: process.env.XUNFEI_APP_ID,
+  xunfeiApiKey: process.env.XUNFEI_API_KEY,
+  xunfeiApiSecret: process.env.XUNFEI_API_SECRET,
   
   // RAG 配置
   chunkSize: parseInt(process.env.CHUNK_SIZE) || 800,
@@ -15,12 +21,10 @@ const config = {
   topK: parseInt(process.env.TOP_K) || 8,
 };
 
-// 验证必需的配置
-const requiredEnvVars = ['ZHIPU_API_KEY'];
-const missingVars = requiredEnvVars.filter(varName => !process.env[varName]);
-
-if (missingVars.length > 0) {
-  throw new Error(`缺少必需的环境变量: ${missingVars.join(', ')}`);
+// 验证必需的配置（改为警告而非报错）
+if (!process.env.ZHIPU_API_KEY) {
+  console.warn('⚠️  未配置 ZHIPU_API_KEY，AI 对话功能将不可用');
+  console.warn('   可通过 .env 文件或环境变量配置');
 }
 
 // 验证配置值范围

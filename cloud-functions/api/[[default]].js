@@ -2,6 +2,13 @@ import express from "express";
 import fs from "fs";
 import path from "path";
 
+/**
+ * RAG Bot API - EdgeOne 云函数版本
+ * 
+ * 注意：这是演示版本，使用简化的全文检索方案
+ * 生产环境建议使用腾讯云 VectorDB 实现真正的向量检索
+ */
+
 const app = express();
 const docsDir = path.resolve("./docs");
 
@@ -104,13 +111,14 @@ app.post("/chat/stream", async (req, res) => {
       }
     }
 
-    // 发送来源信息（字段名必须与前端一致：score）
+    // 发送来源信息（基于文档相关性排序）
     if (usedDocuments.length > 0) {
       const sourceMsg = {
         type: "sources",
-        sources: usedDocuments.map(name => ({ 
+        sources: usedDocuments.map((name, index) => ({ 
           name,
-          score: 0.92 + Math.random() * 0.07  // 92%-99% 匹配度
+          // 基于文档顺序给出递减的相关性分数（第一个最相关）
+          score: parseFloat((0.95 - index * 0.05).toFixed(2))
         }))
       };
       res.write(`data: ${JSON.stringify(sourceMsg)}\n\n`);
@@ -121,7 +129,7 @@ app.post("/chat/stream", async (req, res) => {
       ? usedDocuments.join("、") 
       : "无可用文档";
       
-    const systemPrompt = `你是一个专业的RAG智能问答助手。请严格基于以下参考文档内容回答用户的问题。
+    const systemPrompt = `你是一个专业的RAG智能问答助手。请基于以下参考文档内容回答用户的问题。
 
 参考文档：
 ${documentContext || "（暂无可用文档）"}
@@ -129,10 +137,10 @@ ${documentContext || "（暂无可用文档）"}
 本次回答参考的文档：${docNames}
 
 回答要求：
-1. 必须基于上述文档内容回答，不要编造文档中没有的信息
-2. 回答开头明确说明"根据《${usedDocuments[0] || '文档'}》的内容..."
-3. 如果文档中没有相关信息，请明确说明"参考文档中未找到相关信息"
-4. 回答要简洁、准确、有条理，使用列表形式
+1. 优先基于上述文档内容回答，可以进行合理的逻辑推理和总结
+2. 如果文档中没有相关信息，可以结合你的通用知识进行回答，但要明确说明
+3. 回答要简洁、准确、有条理，适当使用列表形式
+4. 在回答中自然地引用相关文档的内容
 5. 使用中文回答`;
 
     // 调用智谱 API（SSE 流式）

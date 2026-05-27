@@ -14,8 +14,7 @@
  */
 export async function streamChat(question, onChunk, onComplete, abortController, onSources, sessionId) {
   try {
-    const apiUrl = import.meta.env.VITE_API_URL || '/api'
-const response = await fetch(`${apiUrl}/chat/stream`, {
+    const response = await fetch('/api/chat/stream', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'

@@ -11,11 +11,6 @@ const app = express();
 // 中间件
 app.use(express.json());
 app.use(cors());
-// 设置响应头，确保UTF-8编码
-app.use((req, res, next) => {
-  res.setHeader('Content-Type', 'application/json; charset=utf-8');
-  next();
-});
 // 静态文件服务 - 支持前端 public 目录和根目录
 app.use(express.static(path.join(__dirname, '..', 'frontend', 'public')));
 app.use(express.static(path.join(__dirname, '..')));
@@ -116,8 +111,13 @@ async function startServer() {
   try {
     console.log('开始启动服务器...');
 
-    // 初始化知识库
-    await documentService.initializeKnowledgeBase();
+    // 初始化知识库（失败不阻塞启动）
+    try {
+      await documentService.initializeKnowledgeBase();
+    } catch (err) {
+      console.warn('⚠️  知识库初始化跳过:', err.message);
+      console.warn('   文档列表将使用降级模式（读取目录）');
+    }
 
     app.listen(config.port, () => {
       console.log('========================================');

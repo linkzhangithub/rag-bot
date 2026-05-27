@@ -63,14 +63,14 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from "vue";
 import { useRouter } from "vue-router";
-import Logo from "../components/Logo.vue";
-import AppButton from "../components/AppButton.vue";
-import AppNotification from "../components/AppNotification.vue";
-import Sidebar from "../components/Sidebar.vue";
-import ChatArea from "../components/ChatArea.vue";
-import { useChatStream } from "../composables/useChatStream";
-import { useDocument } from "../composables/useDocument";
-import { useNotification } from "../composables/useNotification";
+import Logo from "@/components/Logo.vue";
+import AppButton from "@/components/AppButton.vue";
+import AppNotification from "@/components/AppNotification.vue";
+import Sidebar from "@/components/Sidebar.vue";
+import ChatArea from "@/components/ChatArea.vue";
+import { useChatStream } from "@/composables/useChatStream";
+import { useDocument } from "@/composables/useDocument";
+import { useNotification } from "@/composables/useNotification";
 import "@/assets/styles/chat.css";
 
 const router = useRouter();
@@ -79,7 +79,7 @@ const {
   isGenerating,
   sendMessage: sendChatMessage,
 } = useChatStream();
-const { documents, handleDelete, loadDocuments, handleRefresh } = useDocument();
+const { documents, handleDelete, loadDocuments } = useDocument();
 const { notification, success, error, close } = useNotification();
 
 const sidebarOpen = ref(false);
@@ -132,7 +132,7 @@ const handleUploadError = (message) => {
 
 const handleRefreshDocuments = async () => {
   try {
-    await handleRefresh();
+    await loadDocuments();
     success("文档刷新成功");
   } catch (err) {
     error("刷新失败: " + err.message);
