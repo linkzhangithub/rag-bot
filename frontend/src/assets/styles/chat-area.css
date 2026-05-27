@@ -130,6 +130,7 @@
   width: fit-content;
   max-width: 75%;
   justify-content: flex-end;
+  flex-direction: row-reverse; /* 用户消息反转顺序，头像在右 */
 }
 
 @keyframes messageSlideIn {
@@ -320,7 +321,7 @@
 }
 
 .message.user .message-time {
-  text-align: right;
+  text-align: left; /* 用户消息时间左对齐（因为在右边） */
 }
 
 .sources-section {
@@ -527,6 +528,7 @@
   .message.user {
     width: fit-content;
     max-width: 85%;
+    flex-direction: row-reverse; /* 用户消息反转顺序，头像在右 */
   }
 
   .message-content-wrapper {
@@ -565,6 +567,7 @@
   .message.user {
     width: fit-content;
     max-width: calc(100vw - 80px);
+    flex-direction: row-reverse; /* 用户消息反转顺序，头像在右 */
   }
 
   .message-content-wrapper {
@@ -655,6 +658,7 @@
 
   .message.user {
     max-width: calc(100vw - 72px);
+    flex-direction: row-reverse; /* 用户消息反转顺序，头像在右 */
   }
 
   .message-content-wrapper {
