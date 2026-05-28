@@ -10,6 +10,22 @@ import { VectorSearcher } from "./vector-search.js";
  * 生产环境建议使用腾讯云 VectorDB 实现真正的向量检索
  */
 
+/**
+ * 清理文件名，防止特殊字符破坏提示词格式
+ * @param {string} fileName - 原始文件名
+ * @param {number} index - 文档索引（用于兜底）
+ * @returns {string} 清理后的文件名
+ */
+function sanitizeFileName(fileName, index) {
+  if (!fileName) {
+    return `文档片段${index + 1}`;
+  }
+  return fileName
+    .replace(/[\【\】\[\]\{\}\(\)\<\>\|\*\?\/\\]/g, '') // 移除特殊符号
+    .replace(/[\n\r\t]/g, '') // 移除控制字符
+    .trim() || `文档片段${index + 1}`;
+}
+
 const app = express();
 const docsDir = path.resolve("./docs");
 
@@ -407,6 +423,10 @@ app.post("/chat/stream", async (req, res) => {
         });
 
         const embeddingData = await embeddingResponse.json();
+        if (!embeddingData.data || !embeddingData.data[0]) {
+          console.error('[ERROR] 嵌入API返回异常数据');
+          throw new Error('嵌入API返回异常');
+        }
         const queryEmbedding = embeddingData.data[0].embedding;
 
         // 2. 向量检索
@@ -443,7 +463,8 @@ app.post("/chat/stream", async (req, res) => {
             const content = fs.readFileSync(filePath, "utf-8");
             relevantDocs.push({
               content: content.substring(0, 2000), // 限制长度
-              metadata: { source: file }
+              metadata: { source: file },
+              similarity: 0.5 // 添加默认相似度值
             });
             usedDocuments.push(file);
           } catch (e) {
@@ -471,21 +492,24 @@ app.post("/chat/stream", async (req, res) => {
       : "无可用文档";
       
     const documentContext = relevantDocs
-      .map((doc, idx) => `【参考文档${idx + 1}】\n${doc.content.substring(0, 1500)}`)
+      .map((doc, idx) => {
+        const docName = sanitizeFileName(doc.metadata?.source, idx);
+        return `【${docName}】\n${doc.content.substring(0, 1500)}`;
+      })
       .join('\n\n');
       
     const systemPrompt = `你是一个专业的RAG智能问答助手。请严格基于以下参考文档内容回答用户的问题。
 
-参考文档：
-${documentContext || "（暂无可用文档）"}
+可用文档：${docNames}
 
-本次回答参考的文档：${docNames}
+参考文档内容：
+${documentContext || "（暂无可用文档）"}
 
 回答要求：
 1. 必须基于上述文档内容回答，不要编造文档中没有的信息
-2. 如果文档中没有相关信息，请明确说明“参考文档中未找到相关信息”
+2. 如果文档中没有相关信息，请明确说明"参考文档中未找到相关信息"
 3. 回答要简洁、准确、有条理，适当使用列表形式
-4. 在回答中自然地引用相关文档的内容
+4. 回答中无需标注任何来源标识（如[1]、[2]、【文档名】等），保持回答简洁清晰
 5. 使用中文回答`;
 
     // 调用智谱 API（SSE 流式）

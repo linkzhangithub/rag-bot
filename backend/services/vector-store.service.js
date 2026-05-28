@@ -85,7 +85,7 @@ class VectorStore {
 
   /**
    * 获取文档列表（按来源分组）
-   * @returns {Array} 文档列表 [{ name, chunks }]
+   * @returns {Array} 文档列表 [{ name, chunks, size }]
    */
   getDocumentList() {
     const docMap = new Map();
@@ -93,9 +93,21 @@ class VectorStore {
     for (const doc of this.data) {
       const name = doc.metadata.source;
       if (!docMap.has(name)) {
-        docMap.set(name, { name, chunks: 0 });
+        docMap.set(name, { name, chunks: 0, size: 0 });
       }
       docMap.get(name).chunks++;
+    }
+
+    // 从 docs 目录读取文件大小
+    const docsDir = path.resolve(__dirname, '../../docs');
+    if (fs.existsSync(docsDir)) {
+      for (const [name, doc] of docMap.entries()) {
+        const filePath = path.join(docsDir, name);
+        if (fs.existsSync(filePath)) {
+          const stats = fs.statSync(filePath);
+          doc.size = stats.size;
+        }
+      }
     }
 
     return Array.from(docMap.values());

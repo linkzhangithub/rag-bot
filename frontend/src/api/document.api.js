@@ -26,22 +26,15 @@ export function getDocuments() {
  * 上传文档
  */
 export async function uploadDocument(file) {
-  // 读取文件内容
-  const content = await new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = (e) => resolve(e.target.result);
-    reader.onerror = (e) => reject(e);
-    reader.readAsText(file);
-  });
-
-  // 发送 JSON 格式
-  return api.post('/documents', {
-    fileName: file.name,
-    content: content
-  }, {
+  // 使用 FormData 格式上传文件
+  const formData = new FormData();
+  formData.append('file', file);
+  
+  return api.post('/documents', formData, {
     headers: {
-      'Content-Type': 'application/json'
-    }
+      'Content-Type': 'multipart/form-data'
+    },
+    timeout: 60000 // 上传文件可能需要更长时间
   });
 }
 

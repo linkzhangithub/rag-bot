@@ -318,10 +318,11 @@
   font-size: 11px;
   color: var(--text);
   padding: 0 4px;
+  text-align: left;
 }
 
 .message.user .message-time {
-  text-align: left; /* 用户消息时间左对齐（因为在右边） */
+  text-align: right; /* 用户消息时间右对齐 */
 }
 
 .sources-section {
