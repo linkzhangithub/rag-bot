@@ -26,14 +26,15 @@ export function getDocuments() {
  * 上传文档
  */
 export async function uploadDocument(file) {
-  // 使用 JSON 格式上传文件（兼容云函数版本）
-  const content = await file.text();
+  // 使用 FormData 格式上传文件（兼容 multer）
+  const formData = new FormData();
+  formData.append('file', file);
   
-  return api.post('/documents', {
-    fileName: file.name,
-    content: content
-  }, {
-    timeout: 60000 // 上传文件可能需要更长时间
+  return api.post('/documents', formData, {
+    timeout: 60000, // 上传文件可能需要更长时间
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    }
   });
 }
 

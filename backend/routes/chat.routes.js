@@ -77,9 +77,12 @@ router.post('/', chatLimiter, async (req, res) => {
     const history = session.messages;
 
     // 检索相关文档
+    console.log(`[CHAT] 开始检索问题: ${question}`);
     const relevantDocs = await retrievalService.retrieve(question);
+    console.log(`[CHAT] 检索完成，找到 ${relevantDocs.length} 个相关文档`);
 
     if (relevantDocs.length === 0) {
+      console.log('[CHAT] 未找到相关文档');
       return res.json({
         success: true,
         answer: '知识库为空或未找到相关文档，请先上传相关文档后再提问。',

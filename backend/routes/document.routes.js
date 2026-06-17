@@ -97,7 +97,7 @@ const storage = multer.diskStorage({
     // 处理中文文件名编码问题
     let fileName = file.originalname;
     console.log(`[DEBUG] 原始文件名: ${fileName}`);
-    
+
     // 增强的编码检测和转换逻辑
     try {
       fileName = detectAndConvertEncoding(fileName);
@@ -105,10 +105,32 @@ const storage = multer.diskStorage({
     } catch (e) {
       console.log(`[DEBUG] 文件名编码修复失败: ${e.message}`);
     }
-    
+
+    // 安全检查：确保文件名不包含路径分隔符和特殊字符
+    fileName = fileName.replace(/[\\/:*?"<>|]/g, '_');
+    if (!fileName) {
+      fileName = `upload_${Date.now()}.tmp`;
+    }
+
     cb(null, fileName);
   },
 });
+
+// 预先检查依赖是否安装
+let hasPdfParse = false;
+let hasMammoth = false;
+try {
+  require('pdf-parse');
+  hasPdfParse = true;
+} catch (e) {
+  console.log('[WARN] pdf-parse 未安装，PDF 文件上传将被拒绝');
+}
+try {
+  require('mammoth');
+  hasMammoth = true;
+} catch (e) {
+  console.log('[WARN] mammoth 未安装，DOCX 文件上传将被拒绝');
+}
 
 const upload = multer({
   storage,
@@ -116,24 +138,31 @@ const upload = multer({
     fileSize: 50 * 1024 * 1024, // 限制文件大小为 50MB
   },
   fileFilter: (req, file, cb) => {
+    // 处理中文文件名编码问题 - 关键修复
+    let originalName = file.originalname;
+    try {
+      // 处理 UTF-8 编码的文件名被错误解析为 Latin-1 的情况
+      const buffer = Buffer.from(originalName, 'latin1');
+      const decodedName = buffer.toString('utf8');
+      // 如果解码后包含中文字符，使用解码后的名称
+      if (/[\u4e00-\u9fa5]/.test(decodedName)) {
+        file.originalname = decodedName;
+        console.log(`[DEBUG] 文件名编码修复: ${originalName} -> ${decodedName}`);
+      }
+    } catch (e) {
+      console.log(`[DEBUG] 文件名编码修复失败: ${e.message}`);
+    }
+
     const ext = path.extname(file.originalname).toLowerCase();
     
     // 检查 PDF 支持
-    if (ext === '.pdf') {
-      try {
-        require('pdf-parse');
-      } catch (e) {
-        return cb(new Error('PDF 解析库未安装，请先运行: npm install pdf-parse'));
-      }
+    if (ext === '.pdf' && !hasPdfParse) {
+      return cb(new Error('PDF 解析库未安装'));
     }
     
     // 检查 DOCX 支持
-    if (ext === '.docx') {
-      try {
-        require('mammoth');
-      } catch (e) {
-        return cb(new Error('DOCX 解析库未安装，请先运行: npm install mammoth'));
-      }
+    if (ext === '.docx' && !hasMammoth) {
+      return cb(new Error('DOCX 解析库未安装'));
     }
     
     if (ext === '.md' || ext === '.txt' || ext === '.pdf' || ext === '.docx') {

@@ -2,10 +2,13 @@ import { ref, onMounted } from 'vue'
 import { getDocuments, uploadDocument, deleteDocument } from '../api/document.api'
 
 // 预设文档列表（用于EdgeOne部署环境，因为GET路由可能有缓存问题）
+// isPreset: true 表示这是预置文档，不能删除
+// displayName: 侧边栏显示的名称（可选，默认使用name）
 const PRESET_DOCUMENTS = [
-  { name: 'AI医疗应用.txt', chunks: 5, size: 2048 },
-  { name: 'RAG系统指南.md', chunks: 8, size: 4096 },
-  { name: '脑机接口技术.docx', chunks: 12, size: 8192 }
+  { name: 'AI医疗应用.txt', chunks: 6, size: 10617, isPreset: true },
+  { name: 'RAG系统指南.md', chunks: 6, size: 8862, isPreset: true },
+  { name: 'AI短剧设计.pdf', chunks: 8, size: 288315, isPreset: true },
+  { name: '脑机接口技术.docx', chunks: 5, size: 15884, isPreset: true }
 ]
 
 // localStorage key
@@ -44,7 +47,7 @@ export function useDocument() {
   /**
    * 加载文档列表
    * 优先从API获取，失败时使用预设文档列表
-   * 合并 localStorage 中上传的文档
+   * 合并 localStorage 中上传的文档，并清理无效的缓存
    */
   async function loadDocuments() {
     loading.value = true // 开始加载
@@ -55,8 +58,22 @@ export function useDocument() {
       // 如果API返回了文档且不为空，使用API数据；否则使用预设文档
       let baseDocs = apiDocs.length > 0 ? apiDocs : PRESET_DOCUMENTS
       
-      // 从 localStorage 获取上传的文档
-      const uploadedDocs = getUploadedDocsFromStorage()
+      // 获取有效的文档名称列表（预置文档 + API返回的文档）
+      const validDocNames = new Set([
+        ...PRESET_DOCUMENTS.map(d => d.name),
+        ...baseDocs.map(d => d.name)
+      ])
+      
+      // 从 localStorage 获取上传的文档，并过滤掉无效的（不在有效列表中的）
+      let uploadedDocs = getUploadedDocsFromStorage()
+      const invalidDocs = uploadedDocs.filter(d => !validDocNames.has(d.name))
+      
+      // 如果有无效文档，清理 localStorage
+      if (invalidDocs.length > 0) {
+        console.log(`[INFO] 清理 ${invalidDocs.length} 个无效的缓存文档:`, invalidDocs.map(d => d.name))
+        uploadedDocs = uploadedDocs.filter(d => validDocNames.has(d.name))
+        saveUploadedDocsToStorage(uploadedDocs)
+      }
       
       // 合并文档列表（去重）
       const uploadedNames = new Set(uploadedDocs.map(d => d.name))
@@ -66,7 +83,7 @@ export function useDocument() {
       ]
       
       documents.value = mergedDocs
-      console.log(`[INFO] 加载文档完成: ${mergedDocs.length} 个文档 (${baseDocs.length} 预置 + ${uploadedDocs.length} 上传)`)
+      console.log(`[INFO] 加载文档完成: ${mergedDocs.length} 个文档 (${baseDocs.length} 预置/API + ${uploadedDocs.length} 上传)`)
     } catch (error) {
       console.warn('加载文档失败，使用预设文档:', error.message)
       

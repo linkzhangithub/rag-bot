@@ -25,7 +25,7 @@
           </svg>
         </div>
         <div class="doc-info">
-          <span class="doc-name">{{ document.name }}</span>
+          <span class="doc-name">{{ document.displayName || document.name }}</span>
           <span class="doc-meta">
             <span class="meta-segment">{{ document.chunks }} 文本块</span>
             <span class="meta-separator">·</span>
@@ -124,9 +124,9 @@ async function handleDelete(name) {
     return;
   }
 
-  // 查找文档对象，检查是否为预置文档
+  // 查找文档对象，检查是否为预置文档（isPreset: true 表示预置文档不可删除）
   const doc = props.documents.find(d => d.name === name);
-  if (doc && !doc.isUploaded) {
+  if (doc && doc.isPreset) {
     console.warn(`[WARN] 尝试删除预置文档: ${name}`);
     // 不显示弹窗，直接返回
     return;

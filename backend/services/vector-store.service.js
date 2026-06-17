@@ -3,7 +3,6 @@ const path = require('path');
 
 /**
  * 向量存储（JSON 文件持久化）
- * 面试可讲：演示环境用 JSON，生产用向量数据库（如 Milvus、Pinecone）
  */
 class VectorStore {
   constructor(filePath = '../data/vector-store.json') {
@@ -85,28 +84,45 @@ class VectorStore {
 
   /**
    * 获取文档列表（按来源分组）
-   * @returns {Array} 文档列表 [{ name, chunks, size }]
+   * @returns {Array} 文档列表 [{ name, chunks, size, isPreset }]
    */
   getDocumentList() {
     const docMap = new Map();
+    const docsDir = path.resolve(__dirname, '../../docs');
 
-    for (const doc of this.data) {
-      const name = doc.metadata.source;
-      if (!docMap.has(name)) {
-        docMap.set(name, { name, chunks: 0, size: 0 });
-      }
-      docMap.get(name).chunks++;
+    // 1. 先从 docs 目录读取预置文档
+    if (fs.existsSync(docsDir)) {
+      const files = fs.readdirSync(docsDir);
+      const docFiles = files.filter((file) => {
+        const ext = path.extname(file).toLowerCase();
+        return [".md", ".txt", ".pdf", ".docx"].includes(ext);
+      });
+
+      docFiles.forEach((file) => {
+        const filePath = path.join(docsDir, file);
+        const stats = fs.statSync(filePath);
+        docMap.set(file, { 
+          name: file, 
+          chunks: 0, 
+          size: stats.size,
+          isPreset: true  // 标记为预置文档
+        });
+      });
     }
 
-    // 从 docs 目录读取文件大小
-    const docsDir = path.resolve(__dirname, '../../docs');
-    if (fs.existsSync(docsDir)) {
-      for (const [name, doc] of docMap.entries()) {
-        const filePath = path.join(docsDir, name);
-        if (fs.existsSync(filePath)) {
-          const stats = fs.statSync(filePath);
-          doc.size = stats.size;
-        }
+    // 2. 从向量数据中更新文本块数量
+    for (const doc of this.data) {
+      const name = doc.metadata.source;
+      if (docMap.has(name)) {
+        docMap.get(name).chunks++;
+      } else {
+        // 非预置文档（上传的文档）
+        docMap.set(name, { 
+          name, 
+          chunks: 1, 
+          size: doc.metadata.size || 0,
+          isPreset: false 
+        });
       }
     }
 

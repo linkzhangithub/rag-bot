@@ -4,105 +4,111 @@ const chunkerService = require('./chunker.service');
 const embeddingService = require('./embedding.service');
 const vectorStore = require('./vector-store.service');
 
-// PDF解析库（可选）
+let textract;
+try {
+  textract = require('textract');
+  console.log('textract 加载成功，支持 PDF、DOCX、TXT、MD 等格式');
+} catch (e) {
+  console.log('textract 未安装，将使用基础文本读取方式');
+  textract = null;
+}
+
 let pdfParse;
 try {
   pdfParse = require('pdf-parse');
+  console.log('pdf-parse 加载成功，支持 PDF 解析');
 } catch (e) {
-  console.log('pdf-parse 未安装，PDF支持不可用');
+  console.log('pdf-parse 未安装');
+  pdfParse = null;
 }
 
-// DOCX解析库（可选）
-let mammoth;
-try {
-  mammoth = require('mammoth');
-} catch (e) {
-  console.log('mammoth 未安装，DOCX支持不可用');
-}
-
-/**
- * 文档处理服务
- * 负责文档加载、分块、嵌入和存储
- */
 class DocumentService {
-  /**
-   * 解析PDF文件
-   * @param {Buffer} buffer - PDF文件缓冲区
-   * @returns {Promise<string>} 提取的文本内容
-   */
-  async parsePDF(buffer) {
-    if (!pdfParse) {
-      throw new Error('PDF解析库未安装，请先运行: npm install pdf-parse');
-    }
-    const data = await pdfParse(buffer);
-    return data.text;
+  async extractTextWithTextract(filePath) {
+    return new Promise((resolve, reject) => {
+      textract.fromFileWithPath(filePath, (error, text) => {
+        if (error) {
+          reject(error);
+        } else {
+          resolve(text || '');
+        }
+      });
+    });
   }
 
-  /**
-   * 解析DOCX文件
-   * @param {Buffer} buffer - DOCX文件缓冲区
-   * @returns {Promise<string>} 提取的文本内容
-   */
-  async parseDOCX(buffer) {
-    if (!mammoth) {
-      throw new Error('DOCX解析库未安装，请先运行: npm install mammoth');
-    }
-    const result = await mammoth.extractRawText({ buffer });
-    return result.value;
-  }
-
-  /**
-   * 根据文件扩展名解析文档
-   * @param {string} filePath - 文件路径
-   * @returns {Promise<string>} 文档内容
-   */
   async parseDocument(filePath) {
     const ext = path.extname(filePath).toLowerCase();
     
-    if (ext === '.pdf') {
-      const buffer = fs.readFileSync(filePath);
-      return await this.parsePDF(buffer);
-    } else if (ext === '.docx') {
-      const buffer = fs.readFileSync(filePath);
-      return await this.parseDOCX(buffer);
-    } else {
-      // 默认按文本文件处理（.md, .txt等）
+    if (ext === '.pdf' && pdfParse) {
+      try {
+        const dataBuffer = fs.readFileSync(filePath);
+        const data = await pdfParse(dataBuffer);
+        const text = data.text || '';
+        console.log(`[DEBUG] ${filePath} 解析成功(pdf-parse)，内容长度: ${text.length}`);
+        if (text.length > 0) {
+          console.log(`[DEBUG] 前200字符: ${text.substring(0, 200)}...`);
+        }
+        return text;
+      } catch (error) {
+        console.warn(`pdf-parse 解析失败 (${filePath}): ${error.message}`);
+      }
+    }
+    
+    if (textract && (ext === '.pdf' || ext === '.docx')) {
+      try {
+        const text = await this.extractTextWithTextract(filePath);
+        console.log(`[DEBUG] ${filePath} 解析成功(textract)，内容长度: ${text.length}`);
+        if (text.length > 0) {
+          console.log(`[DEBUG] 前200字符: ${text.substring(0, 200)}...`);
+        }
+        return text;
+      } catch (error) {
+        console.warn(`textract 解析失败 (${filePath}): ${error.message}，尝试基础方式`);
+      }
+    }
+    
+    try {
       return fs.readFileSync(filePath, 'utf8');
+    } catch (e) {
+      console.warn(`无法读取文件: ${filePath}`);
+      return '';
     }
   }
-  /**
-   * 加载并处理文档
-   * @param {string} filePath - 文件路径
-   * @param {string} fileName - 文件名
-   * @param {number} fileSize - 文件大小（字节）
-   * @returns {Promise<number>} 处理的文本块数量
-   */
+
   async processDocument(filePath, fileName, fileSize = 0) {
-    // 根据文件类型解析文档
     const content = await this.parseDocument(filePath);
+    
+    if (!content || content.trim().length === 0) {
+      console.warn(`文档内容为空: ${fileName}`);
+      return 0;
+    }
+    
     const chunks = chunkerService.splitText(content);
-
     const docs = [];
+    let successCount = 0;
+    let failCount = 0;
 
-    for (const chunk of chunks) {
-      const embedding = await embeddingService.getEmbedding(chunk);
-      docs.push({
-        content: chunk,
-        embedding,
-        metadata: { source: fileName, size: fileSize },
-      });
+    for (let i = 0; i < chunks.length; i++) {
+      try {
+        const embedding = await embeddingService.getEmbedding(chunks[i]);
+        docs.push({
+          content: chunks[i],
+          embedding,
+          metadata: { source: fileName, size: fileSize },
+        });
+        successCount++;
+      } catch (error) {
+        failCount++;
+        console.warn(`[WARN] ${fileName} 文本块 ${i+1} 向量化失败: ${error.message}`);
+      }
     }
 
-    // 批量添加到向量存储
-    vectorStore.addMany(docs);
-
-    return docs.length;
+    if (docs.length > 0) {
+      vectorStore.addMany(docs);
+    }
+    
+    return successCount;
   }
 
-  /**
-   * 从 docs 目录初始化知识库
-   * @returns {Promise<void>}
-   */
   async initializeKnowledgeBase() {
     const docsDir = path.resolve(__dirname, '../../docs');
 
@@ -117,25 +123,24 @@ class DocumentService {
     });
 
     console.log(`找到 ${files.length} 个文档文件`);
-
-    // 清空现有数据，避免重复加载
     vectorStore.clear();
 
     for (const file of files) {
       const filePath = `${docsDir}/${file}`;
       const stats = fs.statSync(filePath);
       const fileSize = stats.size;
-      const chunkCount = await this.processDocument(filePath, file, fileSize);
-      console.log(`加载文档：${file}，分割为 ${chunkCount} 个文本块`);
+      
+      try {
+        const chunkCount = await this.processDocument(filePath, file, fileSize);
+        console.log(`加载文档：${file}，分割为 ${chunkCount} 个文本块`);
+      } catch (error) {
+        console.error(`加载文档失败 ${file}: ${error.message}`);
+      }
     }
 
     console.log(`知识库初始化完成，共 ${vectorStore.size()} 个文本块`);
   }
 
-  /**
-   * 重新初始化知识库（清空并重新加载所有文档）
-   * @returns {Promise<void>}
-   */
   async reinitializeKnowledgeBase() {
     const docsDir = path.resolve(__dirname, '../../docs');
 
@@ -150,19 +155,23 @@ class DocumentService {
     });
 
     console.log(`找到 ${files.length} 个文档文件`);
-
     vectorStore.clear();
 
     for (const file of files) {
       const filePath = `${docsDir}/${file}`;
       const stats = fs.statSync(filePath);
       const fileSize = stats.size;
-      const chunkCount = await this.processDocument(filePath, file, fileSize);
-      console.log(`重新加载文档：${file}，分割为 ${chunkCount} 个文本块`);
+      
+      try {
+        const chunkCount = await this.processDocument(filePath, file, fileSize);
+        console.log(`重新加载文档：${file}，分割为 ${chunkCount} 个文本块`);
+      } catch (error) {
+        console.error(`重新加载文档失败 ${file}: ${error.message}`);
+      }
     }
 
     console.log(`知识库重新初始化完成，共 ${vectorStore.size()} 个文本块`);
   }
 }
 
-module.exports = new DocumentService();
+module.exports = new DocumentService

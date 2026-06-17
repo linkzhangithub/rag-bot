@@ -3,7 +3,6 @@ import { streamChat } from '../api/chat.api'
 
 /**
  * SSE 流式对话逻辑
- * 面试可讲：AbortController 取消请求，ReadableStream 解析 SSE
  */
 export function useChatStream() {
   const messages = ref([])
@@ -46,7 +45,12 @@ export function useChatStream() {
     
     isGenerating.value = true
 
-    // 3. 创建 AbortController
+    // 3. 如果有正在进行的请求，先取消它
+    if (abortController) {
+      abortController.abort()
+    }
+    
+    // 4. 创建新的 AbortController
     abortController = new AbortController()
 
     try {
