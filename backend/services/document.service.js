@@ -174,4 +174,4 @@ class DocumentService {
   }
 }
 
-module.exports = new DocumentService
+module.exports = new DocumentService();

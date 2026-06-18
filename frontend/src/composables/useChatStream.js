@@ -23,6 +23,13 @@ export function useChatStream() {
   const sessionId = getOrCreateSessionId()
 
   /**
+   * 生成唯一消息ID
+   */
+  const generateMessageId = () => {
+    return `msg_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
+  }
+
+  /**
    * 发送消息
    */
   async function sendMessage(content) {
@@ -30,6 +37,7 @@ export function useChatStream() {
 
     // 1. 添加用户消息
     messages.value.push({ 
+      id: generateMessageId(),
       role: 'user', 
       content,
       timestamp: new Date()
@@ -37,6 +45,7 @@ export function useChatStream() {
     
     // 2. 添加空的助手消息（用于流式更新）
     messages.value.push({ 
+      id: generateMessageId(),
       role: 'assistant', 
       content: '',
       sources: [],
@@ -76,18 +85,33 @@ export function useChatStream() {
           const lastIndex = messages.value.length - 1
           const lastMessage = messages.value[lastIndex]
           lastMessage.sources = sources
-          // 触发数组更新
+          if (sources.length === 0) {
+            lastMessage.content += '\n\n⚠️ 提示：未找到相关文档。请尝试上传相关文档或调整问题表述。'
+          }
           messages.value = [...messages.value]
         },
         sessionId // 传递 sessionId
       )
     } catch (error) {
-      console.error('发送消息失败:', error)
-      isGenerating.value = false
+      // 忽略取消错误（用户主动发送新消息时取消旧请求）
+      const isAbortError = 
+        error.name === 'AbortError' || 
+        error.name === 'CanceledError' ||
+        error.message.includes('ERR_ABORTED') ||
+        error.message.includes('request was aborted') ||
+        (error.cause && error.cause.name === 'AbortError') ||
+        (error.cause && error.cause.name === 'CanceledError');
+      
+      if (isAbortError) {
+        console.log('请求已取消（用户发送了新消息）');
+        return;
+      }
+      console.error('发送消息失败:', error);
+      isGenerating.value = false;
       
       // 添加错误消息
-      const lastMessage = messages.value[messages.value.length - 1]
-      lastMessage.content = `错误：${error.message}`
+      const lastMessage = messages.value[messages.value.length - 1];
+      lastMessage.content = `错误：${error.message}`;
     }
   }
 

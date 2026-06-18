@@ -5,6 +5,7 @@
         v-for="document in documents"
         :key="document.name"
         class="document-item"
+        @click="handlePreview(document)"
       >
         <div class="doc-icon" :title="document.name">
           <svg
@@ -25,7 +26,9 @@
           </svg>
         </div>
         <div class="doc-info">
-          <span class="doc-name">{{ document.displayName || document.name }}</span>
+          <span class="doc-name">{{
+            document.displayName || document.name
+          }}</span>
           <span class="doc-meta">
             <span class="meta-segment">{{ document.chunks }} 文本块</span>
             <span class="meta-separator">·</span>
@@ -33,10 +36,12 @@
           </span>
         </div>
         <button
-          @click="handleDelete(document.name)"
+          @click.stop="handleDelete(document.name)"
           class="delete-btn"
-          :class="{ 'disabled': !document.isUploaded }"
-          :title="document.isUploaded ? `删除 ${document.name}` : '预置文档不可删除'"
+          :class="{ disabled: !document.isUploaded }"
+          :title="
+            document.isUploaded ? `删除 ${document.name}` : '预置文档不可删除'
+          "
           :disabled="!document.isUploaded"
         >
           <svg
@@ -104,7 +109,7 @@ const props = defineProps({
   },
 });
 
-const emit = defineEmits(["delete"]);
+const emit = defineEmits(["delete", "preview"]);
 
 // 删除弹窗状态
 const showDeleteModal = ref(false);
@@ -118,6 +123,16 @@ function formatSize(bytes) {
   return (bytes / (1024 * 1024)).toFixed(1) + " MB";
 }
 
+// 点击文档预览
+function handlePreview(doc) {
+  if (!doc.name || typeof doc.name !== "string") {
+    console.error("无效的文档名称:", doc.name);
+    return;
+  }
+
+  emit("preview", doc);
+}
+
 async function handleDelete(name) {
   if (!name || typeof name !== "string") {
     console.error("无效的文档名称:", name);
@@ -125,7 +140,7 @@ async function handleDelete(name) {
   }
 
   // 查找文档对象，检查是否为预置文档（isPreset: true 表示预置文档不可删除）
-  const doc = props.documents.find(d => d.name === name);
+  const doc = props.documents.find((d) => d.name === name);
   if (doc && doc.isPreset) {
     console.warn(`[WARN] 尝试删除预置文档: ${name}`);
     // 不显示弹窗，直接返回
@@ -141,11 +156,11 @@ function confirmDelete() {
   if (!documentToDelete.value) return;
   isDeleting.value = true;
   emit("delete", documentToDelete.value);
-  
+
   // 设置超时保护，防止一直转圈
   setTimeout(() => {
     if (isDeleting.value) {
-      console.warn('[WARN] 删除操作超时，自动重置状态');
+      console.warn("[WARN] 删除操作超时，自动重置状态");
       resetDeleteState();
     }
   }, 5000); // 5秒超时

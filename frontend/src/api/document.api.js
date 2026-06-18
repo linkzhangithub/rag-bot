@@ -44,3 +44,18 @@ export async function uploadDocument(file) {
 export function deleteDocument(name) {
   return api.delete(`/documents/${encodeURIComponent(name)}`)
 }
+
+/**
+ * 获取文档内容
+ * @param {string} fileName - 文档名称
+ */
+export function getDocumentContent(fileName) {
+  return api.get(`/documents/content/${encodeURIComponent(fileName)}`)
+}
+
+/**
+ * 刷新文档列表
+ */
+export function refreshDocuments() {
+  return api.post('/documents/refresh')
+}

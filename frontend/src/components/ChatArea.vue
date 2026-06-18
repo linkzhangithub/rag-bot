@@ -231,6 +231,7 @@ function handleSend() {
 }
 
 function handleQuickAsk(question) {
+  if (props.isGenerating) return;
   emit("quick-ask", question);
 }
 

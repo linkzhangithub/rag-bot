@@ -243,11 +243,24 @@ router.post('/', uploadLimiter, upload.single('file'), async (req, res) => {
 router.delete('/:name', (req, res) => {
   try {
     const fileName = decodeURIComponent(req.params.name);
+    
+    // 路径遍历防护：过滤路径遍历字符
+    if (fileName.includes('..') || fileName.includes('/') || fileName.includes('\\')) {
+      return res.status(400).json({ success: false, error: '文件名包含非法字符' });
+    }
+    
     const removedCount = vectorStore.removeBySource(fileName);
 
     // 同时删除 docs 目录里的文件
     const docsDir = path.resolve(__dirname, '../../docs');
     const filePath = path.join(docsDir, fileName);
+    
+    // 额外验证：确保路径在 docs 目录内
+    const normalizedPath = path.normalize(filePath);
+    if (!normalizedPath.startsWith(path.normalize(docsDir))) {
+      return res.status(400).json({ success: false, error: '非法路径' });
+    }
+    
     if (fs.existsSync(filePath)) {
       fs.unlinkSync(filePath);
     }
@@ -278,6 +291,74 @@ router.post('/refresh', async (req, res) => {
   } catch (error) {
     console.error('[ERROR] 刷新知识库失败:', error);
     console.error('[ERROR] 错误堆栈:', error.stack);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * GET /api/documents/content/:name - 获取文档内容
+ */
+router.get('/content/:name', async (req, res) => {
+  try {
+    const fileName = decodeURIComponent(req.params.name);
+    
+    // 路径遍历防护：过滤路径遍历字符
+    if (fileName.includes('..') || fileName.includes('/') || fileName.includes('\\')) {
+      return res.status(400).json({ success: false, error: '文件名包含非法字符' });
+    }
+    
+    const docsDir = path.resolve(__dirname, '../../docs');
+    const filePath = path.join(docsDir, fileName);
+    
+    // 额外验证：确保路径在 docs 目录内
+    const normalizedPath = path.normalize(filePath);
+    if (!normalizedPath.startsWith(path.normalize(docsDir))) {
+      return res.status(400).json({ success: false, error: '非法路径' });
+    }
+    
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ success: false, error: '文档不存在' });
+    }
+    
+    const ext = path.extname(fileName).toLowerCase();
+    let content = '';
+    let mimeType = 'text/plain';
+    
+    // 根据文件类型解析内容
+    if (ext === '.pdf') {
+      // PDF文件返回文件路径，前端使用iframe渲染
+      return res.json({ 
+        success: true, 
+        type: 'pdf',
+        fileName: fileName,
+        filePath: `/docs/${encodeURIComponent(fileName)}`,
+        message: 'PDF文件使用iframe渲染'
+      });
+    } else if (ext === '.docx') {
+      // DOCX文件使用textract解析
+      try {
+        content = await documentService.extractTextWithTextract(filePath);
+        mimeType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+      } catch (err) {
+        console.error('[ERROR] 解析DOCX失败:', err);
+        return res.status(500).json({ success: false, error: '文档解析失败' });
+      }
+    } else {
+      // TXT/MD文件直接读取
+      content = fs.readFileSync(filePath, 'utf8');
+      mimeType = ext === '.md' ? 'text/markdown' : 'text/plain';
+    }
+    
+    res.json({
+      success: true,
+      type: 'text',
+      fileName: fileName,
+      content: content,
+      mimeType: mimeType,
+      size: fs.statSync(filePath).size
+    });
+  } catch (error) {
+    console.error('[ERROR] 获取文档内容失败:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });

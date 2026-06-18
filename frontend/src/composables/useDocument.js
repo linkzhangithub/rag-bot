@@ -96,11 +96,22 @@ export function useDocument() {
   }
 
   /**
-   * 上传文档
-   */
-  async function handleUpload(file) {
-    uploading.value = true
-    uploadProgress.value = 0
+ * 上传文档
+ * 云部署环境：显示友好提示，阻止上传
+ * 本地环境：正常上传
+ */
+async function handleUpload(file) {
+  // 检测是否在生产环境（腾讯云部署）
+  const isProduction = import.meta.env.PROD;
+  
+  if (isProduction) {
+    // 云部署环境：显示友好提示
+    console.warn('[云部署提示] 受部署环境限制，上传的文档仅作展示');
+    throw new Error('CLOUD_UPLOAD_NOT_SUPPORTED');
+  }
+  
+  uploading.value = true
+  uploadProgress.value = 0
     
     try {
       const response = await uploadDocument(file)

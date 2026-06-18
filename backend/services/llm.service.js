@@ -106,6 +106,7 @@ ${question}`;
           "Content-Type": "application/json",
           Authorization: `Bearer ${config.zhipuApiKey}`,
         },
+        timeout: 60000,
       };
 
       const req = https.request(options, (res) => {

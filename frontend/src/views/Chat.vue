@@ -40,6 +40,7 @@
         @upload-error="handleUploadError"
         @toggle="handleSidebarToggle"
         @refresh="handleRefreshDocuments"
+        @preview="handlePreviewDocument"
       />
       <div
         v-if="sidebarOpen && isMobile"
@@ -82,7 +83,15 @@ const {
   isGenerating,
   sendMessage: sendChatMessage,
 } = useChatStream();
-const { documents, uploading, uploadProgress, loading, handleUpload, handleDelete, loadDocuments } = useDocument();
+const {
+  documents,
+  uploading,
+  uploadProgress,
+  loading,
+  handleUpload,
+  handleDelete,
+  loadDocuments,
+} = useDocument();
 const { notification, success, error, close } = useNotification();
 
 const sidebarOpen = ref(false);
@@ -121,7 +130,7 @@ const handleDeleteDocument = async (name) => {
     success(`文档 "${name}" 删除成功`);
     // loadDocuments() 已经在 handleDelete 中调用，会触发 DocumentList 的 watch 重置状态
   } catch (err) {
-    console.error('删除失败:', err);
+    console.error("删除失败:", err);
     error("删除失败: " + err.message);
     // 即使失败，也要重新加载文档列表，触发 watch 重置弹窗状态
     await loadDocuments();
@@ -133,7 +142,14 @@ const handleUploadFile = async (file) => {
     await handleUpload(file);
     success(`文档 "${file.name}" 上传成功`);
   } catch (err) {
-    error("上传失败: " + err.message);
+    // 检测是否是云环境限制
+    if (err.message === "CLOUD_UPLOAD_NOT_SUPPORTED") {
+      error(
+        "受部署环境限制，上传的文档仅作展示。完整的向量检索与智能问答功能请拉取项目到本地体验。",
+      );
+    } else {
+      error("上传失败: " + err.message);
+    }
   }
 };
 
@@ -148,6 +164,17 @@ const handleRefreshDocuments = async () => {
   } catch (err) {
     error("刷新失败: " + err.message);
   }
+};
+
+// 处理文档预览
+const handlePreviewDocument = (doc) => {
+  // 使用新标签页打开文档预览页面
+  const previewUrl = router.resolve({
+    name: "DocumentPreview",
+    query: { name: doc.name },
+  }).href;
+
+  window.open(previewUrl, "_blank");
 };
 
 const closeNotification = () => close();

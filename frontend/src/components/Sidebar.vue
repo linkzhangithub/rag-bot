@@ -65,7 +65,12 @@
       </div>
       
       <!-- 文档列表 -->
-      <DocumentList v-else :documents="documents" :collapsed="isCollapsed" @delete="$emit('delete-document', $event)" />
+      <DocumentList 
+        :documents="documents" 
+        :collapsed="isCollapsed" 
+        @delete="$emit('delete-document', $event)" 
+        @preview="$emit('preview', $event)" 
+      />
     </div>
 
     <div v-if="!isCollapsed" class="sidebar-footer">
@@ -99,7 +104,7 @@ const props = defineProps({
   uploadProgress: { type: Number, default: 0 } // 添加 uploadProgress 属性
 })
 
-const emit = defineEmits(['delete-document', 'upload-success', 'upload-error', 'toggle', 'refresh'])
+const emit = defineEmits(['delete-document', 'upload-success', 'upload-error', 'toggle', 'refresh', 'preview'])
 
 const isCollapsed = computed(() => props.collapsed)
 const isMobileOpen = computed(() => props.mobileOpen)

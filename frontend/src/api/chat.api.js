@@ -19,6 +19,12 @@ export async function streamChat(
   onSources,
   sessionId,
 ) {
+  // 检查是否已取消
+  if (abortController?.signal?.aborted) {
+    console.log("请求已在发送前取消");
+    return;
+  }
+
   try {
     const response = await fetch("/api/chat/stream", {
       method: "POST",
@@ -85,9 +91,21 @@ export async function streamChat(
       }
     }
   } catch (error) {
-    if (error.name === "AbortError") {
-      console.log("请求已取消");
-    } else {
+    // 检查是否是取消相关的错误（静默处理）
+    const isAbortError =
+      error.name === "AbortError" ||
+      error.name === "CanceledError" ||
+      error.message.includes("ERR_ABORTED") ||
+      error.message.includes("request was aborted") ||
+      (error.cause && error.cause.name === "AbortError") ||
+      (error.cause && error.cause.name === "CanceledError") ||
+      (error.name === "TypeError" &&
+        error.message === "Failed to fetch" &&
+        error.cause?.message?.includes("abort")) ||
+      (error.name === "TypeError" && error.message.includes("ERR_ABORTED"));
+
+    // 取消操作静默处理，不输出任何日志
+    if (!isAbortError) {
       console.error("SSE 请求失败:", error);
       throw error;
     }

@@ -190,6 +190,7 @@
   flex-direction: column;
   gap: 8px;
   max-width: calc(100% - 48px);
+  width: 100%;
   box-sizing: border-box;
 }
 
@@ -199,10 +200,12 @@
   line-height: 1.5;
   font-size: 14px;
   word-break: break-word;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
   max-width: 100%;
+  width: 100%;
   box-sizing: border-box;
   transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  overflow: hidden;
 }
 
 .message-text > p {
@@ -332,10 +335,8 @@
   border-radius: 8px;
   border-left: 3px solid var(--accent);
   width: 100%;
-  max-width: 520px;
+  max-width: 100%;
   box-sizing: border-box;
-  /* 固定宽度，避免闪烁效果 */
-  min-width: 280px;
 }
 
 .sources-header {
