@@ -104,9 +104,8 @@ const loadDocument = async () => {
     documentType.value = data.type
     
     if (data.type === 'pdf') {
-      // PDF 文件使用 iframe 预览，拼接完整的后端地址
-      const apiBase = import.meta.env.VITE_API_BASE || 'http://localhost:3000'
-      pdfUrl.value = `${apiBase}${data.filePath}`
+      // PDF 文件使用 iframe 预览，使用相对路径（兼容云函数环境）
+      pdfUrl.value = data.filePath
     } else {
       // 文本文件直接显示内容
       content.value = data.content

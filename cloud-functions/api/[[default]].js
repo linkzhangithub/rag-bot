@@ -587,6 +587,126 @@ ${documentContext || "（暂无可用文档）"}
   }
 });
 
+// GET /docs/:name - 直接提供文档文件（用于PDF预览）
+app.get("/docs/:name", async (req, res) => {
+  try {
+    const fileName = decodeURIComponent(req.params.name);
+    
+    // 路径遍历防护
+    if (fileName.includes('..') || fileName.includes('/') || fileName.includes('\\')) {
+      return res.status(400).json({ success: false, error: '文件名包含非法字符' });
+    }
+    
+    const filePath = path.join(docsDir, fileName);
+    
+    // 额外验证：确保路径在 docs 目录内
+    const normalizedPath = path.normalize(filePath);
+    const normalizedDocsDir = path.normalize(docsDir);
+    if (!normalizedPath.startsWith(normalizedDocsDir)) {
+      return res.status(400).json({ success: false, error: '非法路径' });
+    }
+    
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ success: false, error: '文件不存在' });
+    }
+    
+    const ext = path.extname(fileName).toLowerCase();
+    
+    if (ext === '.pdf') {
+      // PDF文件直接返回二进制内容
+      const fileBuffer = fs.readFileSync(filePath);
+      res.writeHead(200, {
+        'Content-Type': 'application/pdf',
+        'Content-Length': fileBuffer.length,
+        'Content-Disposition': `inline; filename="${encodeURIComponent(fileName)}"`
+      });
+      res.end(fileBuffer);
+    } else {
+      // 其他文件类型返回文本内容
+      const content = fs.readFileSync(filePath, 'utf8');
+      res.writeHead(200, {
+        'Content-Type': 'text/plain; charset=utf-8',
+        'Content-Length': Buffer.byteLength(content, 'utf8')
+      });
+      res.end(content);
+    }
+  } catch (error) {
+    console.error('[ERROR] 获取文件失败:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// GET /documents/content/:name - 获取文档内容
+app.get("/documents/content/:name", async (req, res) => {
+  try {
+    const fileName = decodeURIComponent(req.params.name);
+    
+    // 路径遍历防护
+    if (fileName.includes('..') || fileName.includes('/') || fileName.includes('\\')) {
+      return res.status(400).json({ success: false, error: '文件名包含非法字符' });
+    }
+    
+    const filePath = path.join(docsDir, fileName);
+    
+    // 额外验证：确保路径在 docs 目录内
+    const normalizedPath = path.normalize(filePath);
+    const normalizedDocsDir = path.normalize(docsDir);
+    if (!normalizedPath.startsWith(normalizedDocsDir)) {
+      return res.status(400).json({ success: false, error: '非法路径' });
+    }
+    
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ success: false, error: '文档不存在' });
+    }
+    
+    const ext = path.extname(fileName).toLowerCase();
+    let content = '';
+    let mimeType = 'text/plain';
+    
+    // 根据文件类型解析内容
+    if (ext === '.pdf') {
+      // PDF文件返回文件路径，前端使用iframe渲染
+      return res.json({ 
+        success: true, 
+        type: 'pdf',
+        fileName: fileName,
+        filePath: `/docs/${encodeURIComponent(fileName)}`,
+        message: 'PDF文件使用iframe渲染'
+      });
+    } else if (ext === '.docx') {
+      // DOCX文件提示无法在云函数环境解析
+      return res.json({
+        success: true,
+        type: 'text',
+        fileName: fileName,
+        content: 'DOCX文件解析需要额外依赖，云函数环境暂不支持。请在本地环境查看文档内容。',
+        mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        size: fs.statSync(filePath).size
+      });
+    } else {
+      // TXT/MD文件直接读取
+      try {
+        content = fs.readFileSync(filePath, 'utf8');
+      } catch (e) {
+        content = '无法读取文件内容';
+      }
+      mimeType = ext === '.md' ? 'text/markdown' : 'text/plain';
+    }
+    
+    res.json({
+      success: true,
+      type: 'text',
+      fileName: fileName,
+      content: content,
+      mimeType: mimeType,
+      size: fs.statSync(filePath).size
+    });
+  } catch (error) {
+    console.error('[ERROR] 获取文档内容失败:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // GET /health - 健康检查
 app.get("/health", (req, res) => {
   res.json({ 
