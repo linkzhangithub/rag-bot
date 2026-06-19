@@ -1,7 +1,11 @@
 import express from "express";
 import fs from "fs";
 import path from "path";
+import { fileURLToPath } from 'url';
 import { VectorSearcher } from "./vector-search.js";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 /**
  * RAG Bot API - EdgeOne 云函数版本
@@ -27,7 +31,7 @@ function sanitizeFileName(fileName, index) {
 }
 
 const app = express();
-const docsDir = path.resolve("./docs");
+const docsDir = path.resolve(__dirname, '../../docs');
 
 // 初始化向量检索器（懒加载）
 let vectorSearcher = null;
