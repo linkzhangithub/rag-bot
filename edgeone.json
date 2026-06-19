@@ -7,7 +7,11 @@
     "nodejs": {
       "includeFiles": [
         "docs/**",
-        "backend/data/**"
+        "docs/*.txt",
+        "docs/*.md",
+        "docs/*.pdf",
+        "docs/*.docx",
+        "backend/data/vector-store.json"
       ],
       "maxDuration": 60
     }

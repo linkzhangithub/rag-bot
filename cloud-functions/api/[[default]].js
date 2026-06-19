@@ -31,7 +31,31 @@ function sanitizeFileName(fileName, index) {
 }
 
 const app = express();
-const docsDir = path.resolve(__dirname, '../../docs');
+
+/**
+ * 解析 docs 目录路径（兼容 EdgeOne 云函数多种部署目录结构）
+ * 官方文档要求使用相对路径读取 includeFiles 打包的文件
+ */
+function resolveDocsDir() {
+  const candidates = [
+    path.resolve(__dirname, '../../docs'),
+    path.resolve('./docs'),
+    path.resolve('../docs'),
+    path.join(process.cwd(), 'docs'),
+  ];
+
+  for (const dir of candidates) {
+    if (fs.existsSync(dir)) {
+      return dir;
+    }
+  }
+
+  return path.resolve(__dirname, '../../docs');
+}
+
+function getDocsDir() {
+  return resolveDocsDir();
+}
 
 // 初始化向量检索器（懒加载）
 let vectorSearcher = null;
@@ -60,6 +84,8 @@ async function initVectorSearcher() {
       path.resolve('./backend/data/vector-store.json'),
       path.resolve('../backend/data/vector-store.json'),
       path.resolve('../../backend/data/vector-store.json'),
+      path.resolve(__dirname, '../../backend/data/vector-store.json'),
+      path.join(process.cwd(), 'backend/data/vector-store.json'),
     ];
     
     let vectorDataPath = null;
@@ -127,6 +153,7 @@ app.get("/documents", (req, res) => {
     }
 
     // 2. 从文件系统获取预置文档
+    const docsDir = getDocsDir();
     if (fs.existsSync(docsDir)) {
       const files = fs.readdirSync(docsDir);
       
@@ -152,7 +179,8 @@ app.get("/documents", (req, res) => {
           name: file, 
           chunks, 
           size: stats.size,
-          isUploaded: false // 标记为预置文档
+          isUploaded: false,
+          isPreset: true
         };
       });
     }
@@ -455,6 +483,7 @@ app.post("/chat/stream", async (req, res) => {
     // 如果没有找到相关文档，使用全文检索作为后备
     if (relevantDocs.length === 0) {
       console.log('[WARN] 使用全文检索模式');
+      const docsDir = getDocsDir();
       if (fs.existsSync(docsDir)) {
         const files = fs.readdirSync(docsDir).filter((file) => {
           const ext = path.extname(file).toLowerCase();
@@ -601,6 +630,7 @@ app.get("/docs/:name", async (req, res) => {
       return res.status(400).json({ success: false, error: '文件名包含非法字符' });
     }
     
+    const docsDir = getDocsDir();
     const filePath = path.join(docsDir, fileName);
     
     // 额外验证：确保路径在 docs 目录内
@@ -650,6 +680,7 @@ app.get("/documents/content/:name", async (req, res) => {
       return res.status(400).json({ success: false, error: '文件名包含非法字符' });
     }
     
+    const docsDir = getDocsDir();
     const filePath = path.join(docsDir, fileName);
     
     // 额外验证：确保路径在 docs 目录内
@@ -713,6 +744,14 @@ app.get("/documents/content/:name", async (req, res) => {
 
 // GET /health - 健康检查
 app.get("/health", (req, res) => {
+  const docsDir = getDocsDir();
+  const candidateDirs = [
+    path.resolve(__dirname, '../../docs'),
+    path.resolve('./docs'),
+    path.resolve('../docs'),
+    path.join(process.cwd(), 'docs'),
+  ];
+
   res.json({ 
     success: true, 
     message: "RAG Bot API is running",
@@ -720,6 +759,9 @@ app.get("/health", (req, res) => {
       docsDir,
       exists: fs.existsSync(docsDir),
       files: fs.existsSync(docsDir) ? fs.readdirSync(docsDir) : [],
+      candidateDirs: candidateDirs.map((dir) => ({ dir, exists: fs.existsSync(dir) })),
+      cwd: process.cwd(),
+      __dirname,
       hasApiKey: !!process.env.ZHIPU_API_KEY
     }
   });

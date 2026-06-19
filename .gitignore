@@ -11,9 +11,12 @@ logs
 # Build files
 build/
 dist/
+MinGit/
+MinGit.zip
 
-# Backend data
-backend/data/
+# Backend data (allow vector-store.json for EdgeOne deployment)
+backend/data/*
+!backend/data/vector-store.json
 
 # Frontend
 frontend/node_modules/
