@@ -1,6 +1,6 @@
 {
   "buildCommand": "node scripts/prepare-edgeone.js && cd frontend && npm run build",
-  "installCommand": "npm install && cd frontend && npm install && node scripts/prepare-edgeone.js",
+  "installCommand": "npm install && cd frontend && npm install && cd .. && node scripts/prepare-edgeone.js",
   "outputDirectory": "./frontend/dist",
   "nodeVersion": "18.20.4",
   "cloudFunctions": {
