@@ -2,6 +2,7 @@ import express from "express";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from 'url';
+import mammoth from "mammoth";
 import { VectorSearcher } from "./vector-search.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -38,6 +39,9 @@ const app = express();
  */
 function resolveDocsDir() {
   const candidates = [
+    path.join(__dirname, '_data/docs'),
+    path.join(process.cwd(), '_data/docs'),
+    path.join(process.cwd(), 'cloud-functions/api/_data/docs'),
     path.resolve(__dirname, '../../docs'),
     path.resolve('./docs'),
     path.resolve('../docs'),
@@ -46,11 +50,13 @@ function resolveDocsDir() {
 
   for (const dir of candidates) {
     if (fs.existsSync(dir)) {
+      console.log(`[INFO] docsDir resolved: ${dir}`);
       return dir;
     }
   }
 
-  return path.resolve(__dirname, '../../docs');
+  console.warn('[WARN] docsDir not found, using fallback');
+  return path.join(__dirname, '_data/docs');
 }
 
 function getDocsDir() {
@@ -81,6 +87,9 @@ async function initVectorSearcher() {
   try {
     // 尝试从多个位置加载向量数据
     const possiblePaths = [
+      path.join(__dirname, '_data/vector-store.json'),
+      path.join(process.cwd(), '_data/vector-store.json'),
+      path.join(process.cwd(), 'cloud-functions/api/_data/vector-store.json'),
       path.resolve('./backend/data/vector-store.json'),
       path.resolve('../backend/data/vector-store.json'),
       path.resolve('../../backend/data/vector-store.json'),
@@ -173,7 +182,9 @@ app.get("/documents", (req, res) => {
           // 二进制文件无法读取为文本
         }
         
-        const chunks = content ? Math.ceil(content.length / 500) : 0;
+        const chunks = content
+          ? Math.ceil(content.length / 500)
+          : Math.max(1, Math.ceil(stats.size / 800));
         
         return { 
           name: file, 
@@ -705,19 +716,18 @@ app.get("/documents/content/:name", async (req, res) => {
         success: true, 
         type: 'pdf',
         fileName: fileName,
-        filePath: `/docs/${encodeURIComponent(fileName)}`,
+        filePath: `/api/docs/${encodeURIComponent(fileName)}`,
         message: 'PDF文件使用iframe渲染'
       });
     } else if (ext === '.docx') {
-      // DOCX文件提示无法在云函数环境解析
-      return res.json({
-        success: true,
-        type: 'text',
-        fileName: fileName,
-        content: 'DOCX文件解析需要额外依赖，云函数环境暂不支持。请在本地环境查看文档内容。',
-        mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        size: fs.statSync(filePath).size
-      });
+      try {
+        const result = await mammoth.extractRawText({ path: filePath });
+        content = result.value || '文档内容为空';
+        mimeType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+      } catch (err) {
+        console.error('[ERROR] 解析 DOCX 失败:', err);
+        return res.status(500).json({ success: false, error: '文档解析失败' });
+      }
     } else {
       // TXT/MD文件直接读取
       try {
@@ -746,6 +756,8 @@ app.get("/documents/content/:name", async (req, res) => {
 app.get("/health", (req, res) => {
   const docsDir = getDocsDir();
   const candidateDirs = [
+    path.join(__dirname, '_data/docs'),
+    path.join(process.cwd(), '_data/docs'),
     path.resolve(__dirname, '../../docs'),
     path.resolve('./docs'),
     path.resolve('../docs'),

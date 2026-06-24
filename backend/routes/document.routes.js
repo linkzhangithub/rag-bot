@@ -331,7 +331,7 @@ router.get('/content/:name', async (req, res) => {
         success: true, 
         type: 'pdf',
         fileName: fileName,
-        filePath: `/docs/${encodeURIComponent(fileName)}`,
+        filePath: `/api/docs/${encodeURIComponent(fileName)}`,
         message: 'PDF文件使用iframe渲染'
       });
     } else if (ext === '.docx') {

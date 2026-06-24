@@ -11,6 +11,7 @@
     "start": "node backend/server.js",
     "dev": "cd frontend && npm run dev",
     "build:frontend": "cd frontend && npm run build",
+    "prepare:edgeone": "node scripts/prepare-edgeone.js",
     "preview": "cd frontend && npm run preview"
   },
   "keywords": [],

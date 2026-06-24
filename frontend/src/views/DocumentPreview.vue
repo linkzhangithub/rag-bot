@@ -104,8 +104,9 @@ const loadDocument = async () => {
     documentType.value = data.type
     
     if (data.type === 'pdf') {
-      // PDF 文件使用 iframe 预览，使用相对路径（兼容云函数环境）
-      pdfUrl.value = data.filePath
+      pdfUrl.value = data.filePath?.startsWith('/api/')
+        ? data.filePath
+        : `/api/docs/${encodeURIComponent(fileName)}`
     } else {
       // 文本文件直接显示内容
       content.value = data.content
