@@ -29,12 +29,38 @@ function sanitizeFileName(fileName, index) {
 }
 
 const app = express();
-// 云函数环境中，执行目录是 cloud-functions/api/，需要找到项目根目录的 docs 文件夹
+// 云函数环境中，执行目录是 cloud-functions/api/，需要找到 docs 文件夹
 const currentDir = path
   .dirname(new URL(import.meta.url).pathname)
   .replace(/^\/([A-Za-z]):\//, "$1:/");
 const projectRoot = path.resolve(currentDir, "../../");
-const docsDir = path.join(projectRoot, "docs");
+
+// 动态查找 docs 目录，支持多个候选路径
+// 1. 项目根目录 docs/（本地开发环境）
+// 2. _data/docs/（EdgeOne 云函数环境，prepare-edgeone.js 复制的位置）
+// 3. 其他可能的相对路径
+function findDocsDir() {
+  const candidates = [
+    path.join(projectRoot, "docs"),
+    path.join(currentDir, "_data", "docs"),
+    path.resolve(currentDir, "_data/docs"),
+    path.resolve("./docs"),
+    path.resolve("../docs"),
+    path.resolve("../../docs"),
+  ];
+
+  for (const p of candidates) {
+    if (fs.existsSync(p)) {
+      console.log(`[INFO] 找到文档目录: ${p}`);
+      return p;
+    }
+  }
+
+  console.warn("[WARN] 未找到文档目录，候选路径:", candidates.join(", "));
+  return path.join(projectRoot, "docs");
+}
+
+const docsDir = findDocsDir();
 
 console.log(`[DEBUG] 当前目录: ${currentDir}`);
 console.log(`[DEBUG] 项目根目录: ${projectRoot}`);
@@ -65,6 +91,8 @@ async function initVectorSearcher() {
   try {
     // 尝试从多个位置加载向量数据
     const possiblePaths = [
+      path.join(currentDir, "_data", "vector-store.json"),
+      path.resolve(currentDir, "_data/vector-store.json"),
       path.resolve("./backend/data/vector-store.json"),
       path.resolve("../backend/data/vector-store.json"),
       path.resolve("../../backend/data/vector-store.json"),
