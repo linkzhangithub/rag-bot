@@ -3,6 +3,13 @@
   "installCommand": "npm install && cd frontend && npm install && cd .. && node scripts/prepare-edgeone.js",
   "outputDirectory": "./frontend/dist",
   "nodeVersion": "18.20.4",
+  "rewrite": [
+    {
+      "source": "/*",
+      "destination": "/index.html",
+      "exclude": ["/api/*", "/docs/*"]
+    }
+  ],
   "cloudFunctions": {
     "nodejs": {
       "includeFiles": [
