@@ -1,66 +1,66 @@
-import { ref } from 'vue'
-import { streamChat } from '../api/chat.api'
+import { ref } from "vue";
+import { streamChat } from "../api/chat.api";
 
 /**
  * SSE 流式对话逻辑
  */
 export function useChatStream() {
-  const messages = ref([])
-  const isGenerating = ref(false)
-  let abortController = null
-  
+  const messages = ref([]);
+  const isGenerating = ref(false);
+  let abortController = null;
+
   // 从 localStorage 获取或生成 sessionId（使用更唯一的 ID）
   const getOrCreateSessionId = () => {
-    let sessionId = localStorage.getItem('chat_session_id')
+    let sessionId = localStorage.getItem("chat_session_id");
     if (!sessionId) {
       // 使用时间戳 + 随机数生成唯一 ID
-      sessionId = `session_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
-      localStorage.setItem('chat_session_id', sessionId)
+      sessionId = `session_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+      localStorage.setItem("chat_session_id", sessionId);
     }
-    return sessionId
-  }
-  
-  const sessionId = getOrCreateSessionId()
+    return sessionId;
+  };
+
+  const sessionId = getOrCreateSessionId();
 
   /**
    * 生成唯一消息ID
    */
   const generateMessageId = () => {
-    return `msg_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
-  }
+    return `msg_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+  };
 
   /**
    * 发送消息
    */
   async function sendMessage(content) {
-    if (!content.trim()) return
+    if (!content.trim()) return;
 
     // 1. 添加用户消息
-    messages.value.push({ 
+    messages.value.push({
       id: generateMessageId(),
-      role: 'user', 
+      role: "user",
       content,
-      timestamp: new Date()
-    })
-    
+      timestamp: new Date(),
+    });
+
     // 2. 添加空的助手消息（用于流式更新）
-    messages.value.push({ 
+    messages.value.push({
       id: generateMessageId(),
-      role: 'assistant', 
-      content: '',
+      role: "assistant",
+      content: "",
       sources: [],
-      timestamp: new Date()
-    })
-    
-    isGenerating.value = true
+      timestamp: new Date(),
+    });
+
+    isGenerating.value = true;
 
     // 3. 如果有正在进行的请求，先取消它
     if (abortController) {
-      abortController.abort()
+      abortController.abort();
     }
-    
+
     // 4. 创建新的 AbortController
-    abortController = new AbortController()
+    abortController = new AbortController();
 
     try {
       // 4. SSE 流式请求
@@ -68,47 +68,48 @@ export function useChatStream() {
         content,
         // onChunk: 接收每个数据块
         (chunk) => {
-          const lastIndex = messages.value.length - 1
-          const lastMessage = messages.value[lastIndex]
+          const lastIndex = messages.value.length - 1;
+          const lastMessage = messages.value[lastIndex];
           // 强制触发 Vue 响应式更新
-          lastMessage.content = lastMessage.content + chunk
+          lastMessage.content = lastMessage.content + chunk;
           // 触发数组更新
-          messages.value = [...messages.value]
+          messages.value = [...messages.value];
         },
         // onComplete: 完成回调
         () => {
-          isGenerating.value = false
+          isGenerating.value = false;
         },
         abortController,
         // onSources: 接收来源信息
         (sources) => {
-          const lastIndex = messages.value.length - 1
-          const lastMessage = messages.value[lastIndex]
-          lastMessage.sources = sources
+          const lastIndex = messages.value.length - 1;
+          const lastMessage = messages.value[lastIndex];
+          lastMessage.sources = sources;
           if (sources.length === 0) {
-            lastMessage.content += '\n\n⚠️ 提示：未找到相关文档。请尝试上传相关文档或调整问题表述。'
+            lastMessage.content +=
+              "\n\n⚠️ 提示：未找到相关文档。请尝试上传相关文档或调整问题表述。";
           }
-          messages.value = [...messages.value]
+          messages.value = [...messages.value];
         },
-        sessionId // 传递 sessionId
-      )
+        sessionId, // 传递 sessionId
+      );
     } catch (error) {
       // 忽略取消错误（用户主动发送新消息时取消旧请求）
-      const isAbortError = 
-        error.name === 'AbortError' || 
-        error.name === 'CanceledError' ||
-        error.message.includes('ERR_ABORTED') ||
-        error.message.includes('request was aborted') ||
-        (error.cause && error.cause.name === 'AbortError') ||
-        (error.cause && error.cause.name === 'CanceledError');
-      
+      const isAbortError =
+        error.name === "AbortError" ||
+        error.name === "CanceledError" ||
+        error.message.includes("ERR_ABORTED") ||
+        error.message.includes("request was aborted") ||
+        (error.cause && error.cause.name === "AbortError") ||
+        (error.cause && error.cause.name === "CanceledError");
+
       if (isAbortError) {
-        console.log('请求已取消（用户发送了新消息）');
+        console.log("请求已取消（用户发送了新消息）");
         return;
       }
-      console.error('发送消息失败:', error);
+      console.error("发送消息失败:", error);
       isGenerating.value = false;
-      
+
       // 添加错误消息
       const lastMessage = messages.value[messages.value.length - 1];
       lastMessage.content = `错误：${error.message}`;
@@ -119,15 +120,15 @@ export function useChatStream() {
    * 停止生成
    */
   function stop() {
-    abortController?.abort()
-    isGenerating.value = false
+    abortController?.abort();
+    isGenerating.value = false;
   }
 
   /**
    * 清空消息
    */
   function clearMessages() {
-    messages.value = []
+    messages.value = [];
   }
 
   return {
@@ -135,6 +136,6 @@ export function useChatStream() {
     isGenerating,
     sendMessage,
     stop,
-    clearMessages
-  }
+    clearMessages,
+  };
 }

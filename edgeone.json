@@ -6,7 +6,9 @@
   "cloudFunctions": {
     "nodejs": {
       "includeFiles": [
-        "cloud-functions/api/_data/**"
+        "cloud-functions/api/_data/**",
+        "docs/**",
+        "backend/data/**"
       ],
       "externalNodeModules": [
         "mammoth"

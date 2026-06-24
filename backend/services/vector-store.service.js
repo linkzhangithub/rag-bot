@@ -1,11 +1,11 @@
-const fs = require('fs');
-const path = require('path');
+const fs = require("fs");
+const path = require("path");
 
 /**
  * 向量存储（JSON 文件持久化）
  */
 class VectorStore {
-  constructor(filePath = '../data/vector-store.json') {
+  constructor(filePath = "../data/vector-store.json") {
     this.filePath = path.resolve(__dirname, filePath);
     this.data = this.load();
   }
@@ -17,11 +17,11 @@ class VectorStore {
   load() {
     try {
       if (fs.existsSync(this.filePath)) {
-        const content = fs.readFileSync(this.filePath, 'utf8');
+        const content = fs.readFileSync(this.filePath, "utf8");
         return JSON.parse(content);
       }
     } catch (error) {
-      console.error('加载向量存储失败:', error.message);
+      console.error("加载向量存储失败:", error.message);
     }
     return [];
   }
@@ -37,7 +37,7 @@ class VectorStore {
       }
       fs.writeFileSync(this.filePath, JSON.stringify(this.data, null, 2));
     } catch (error) {
-      console.error('保存向量存储失败:', error.message);
+      console.error("保存向量存储失败:", error.message);
     }
   }
 
@@ -88,7 +88,7 @@ class VectorStore {
    */
   getDocumentList() {
     const docMap = new Map();
-    const docsDir = path.resolve(__dirname, '../../docs');
+    const docsDir = path.resolve(__dirname, "../../docs");
 
     // 1. 先从 docs 目录读取预置文档
     if (fs.existsSync(docsDir)) {
@@ -101,11 +101,11 @@ class VectorStore {
       docFiles.forEach((file) => {
         const filePath = path.join(docsDir, file);
         const stats = fs.statSync(filePath);
-        docMap.set(file, { 
-          name: file, 
-          chunks: 0, 
+        docMap.set(file, {
+          name: file,
+          chunks: 0,
           size: stats.size,
-          isPreset: true  // 标记为预置文档
+          isPreset: true, // 标记为预置文档
         });
       });
     }
@@ -117,11 +117,11 @@ class VectorStore {
         docMap.get(name).chunks++;
       } else {
         // 非预置文档（上传的文档）
-        docMap.set(name, { 
-          name, 
-          chunks: 1, 
+        docMap.set(name, {
+          name,
+          chunks: 1,
           size: doc.metadata.size || 0,
-          isPreset: false 
+          isPreset: false,
         });
       }
     }

@@ -17,11 +17,7 @@
 
       <!-- PDF 预览 -->
       <div v-else-if="documentType === 'pdf'" class="pdf-container">
-        <iframe 
-          :src="pdfUrl" 
-          class="pdf-frame"
-          title="PDF预览"
-        ></iframe>
+        <iframe :src="pdfUrl" class="pdf-frame" title="PDF预览"></iframe>
       </div>
 
       <!-- 文本内容预览 -->
@@ -31,10 +27,17 @@
 
       <!-- 错误状态 -->
       <div v-else-if="error" class="error-container">
-        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-          <circle cx="12" cy="12" r="10"/>
-          <line x1="12" y1="8" x2="12" y2="12"/>
-          <line x1="12" y1="16" x2="12.01" y2="16"/>
+        <svg
+          width="48"
+          height="48"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+        >
+          <circle cx="12" cy="12" r="10" />
+          <line x1="12" y1="8" x2="12" y2="12" />
+          <line x1="12" y1="16" x2="12.01" y2="16" />
         </svg>
         <p>{{ error }}</p>
         <button @click="loadDocument" class="retry-btn">重试</button>
@@ -44,85 +47,84 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
-import { getDocumentContent } from '../api/document.api'
+import { ref, onMounted, computed } from "vue";
+import { useRouter, useRoute } from "vue-router";
+import { getDocumentContent } from "../api/document.api";
 
-const router = useRouter()
-const route = useRoute()
+const router = useRouter();
+const route = useRoute();
 
-const loading = ref(true)
-const documentType = ref('')
-const documentName = ref('')
-const content = ref('')
-const pdfUrl = ref('')
-const error = ref('')
+const loading = ref(true);
+const documentType = ref("");
+const documentName = ref("");
+const content = ref("");
+const pdfUrl = ref("");
+const error = ref("");
 
 const formattedContent = computed(() => {
   // 根据内容类型进行格式化
-  if (!content.value) return ''
-  
+  if (!content.value) return "";
+
   // 如果是 Markdown 内容，进行简单的高亮
-  if (documentName.value.endsWith('.md')) {
+  if (documentName.value.endsWith(".md")) {
     // 简单的 Markdown 预览
     return content.value
-      .replace(/^# (.*$)/gim, '<h1>$1</h1>')
-      .replace(/^## (.*$)/gim, '<h2>$1</h2>')
-      .replace(/^### (.*$)/gim, '<h3>$1</h3>')
-      .replace(/\*\*(.*?)\*\*/gim, '<strong>$1</strong>')
-      .replace(/\*(.*?)\*/gim, '<em>$1</em>')
-      .replace(/\n/gim, '<br>')
+      .replace(/^# (.*$)/gim, "<h1>$1</h1>")
+      .replace(/^## (.*$)/gim, "<h2>$1</h2>")
+      .replace(/^### (.*$)/gim, "<h3>$1</h3>")
+      .replace(/\*\*(.*?)\*\*/gim, "<strong>$1</strong>")
+      .replace(/\*(.*?)\*/gim, "<em>$1</em>")
+      .replace(/\n/gim, "<br>");
   }
-  
+
   // TXT 文件直接显示，保持换行
-  return content.value.replace(/\n/g, '<br>')
-})
+  return content.value.replace(/\n/g, "<br>");
+});
 
 const goBack = () => {
-  router.back()
-}
+  router.back();
+};
 
 const loadDocument = async () => {
-  loading.value = true
-  error.value = ''
-  
+  loading.value = true;
+  error.value = "";
+
   try {
-    const fileName = route.query.name || ''
+    const fileName = route.query.name || "";
     if (!fileName) {
-      throw new Error('未指定文档名称')
+      throw new Error("未指定文档名称");
     }
-    
-    documentName.value = fileName
-    
-    const response = await getDocumentContent(fileName)
-    const data = response.data
-    
+
+    documentName.value = fileName;
+
+    const response = await getDocumentContent(fileName);
+    const data = response.data;
+
     if (!data.success) {
-      throw new Error(data.error || '加载文档失败')
+      throw new Error(data.error || "加载文档失败");
     }
-    
-    documentType.value = data.type
-    
-    if (data.type === 'pdf') {
-      pdfUrl.value = data.filePath?.startsWith('/api/')
-        ? data.filePath
-        : `/api/docs/${encodeURIComponent(fileName)}`
+
+    documentType.value = data.type;
+
+    if (data.type === "pdf") {
+      // PDF 文件使用 iframe 预览，使用相对路径（兼容云函数环境）
+      pdfUrl.value = data.filePath;
     } else {
       // 文本文件直接显示内容
-      content.value = data.content
+      content.value = data.content;
     }
-    
-    loading.value = false
+
+    loading.value = false;
   } catch (err) {
-    console.error('加载文档失败:', err)
-    error.value = err.message || '加载文档失败'
-    loading.value = false
+    console.error("加载文档失败:", err);
+    error.value = err.message || "加载文档失败";
+    loading.value = false;
   }
-}
+};
 
 onMounted(() => {
-  loadDocument()
-})
+  loadDocument();
+});
 </script>
 
 <style scoped>
@@ -213,7 +215,9 @@ onMounted(() => {
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .pdf-container {
