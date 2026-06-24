@@ -20,8 +20,8 @@
         <iframe :src="pdfUrl" class="pdf-frame" title="PDF预览"></iframe>
       </div>
 
-      <!-- 文本内容预览 -->
-      <div v-else-if="documentType === 'text'" class="text-container">
+      <!-- 文本内容预览（TXT/MD/DOCX） -->
+      <div v-else-if="content" class="text-container">
         <div class="text-content" v-html="formattedContent"></div>
       </div>
 
@@ -47,7 +47,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from "vue";
+import { ref, onMounted, onUnmounted, computed } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import { getDocumentContent } from "../api/document.api";
 
@@ -61,9 +61,36 @@ const content = ref("");
 const pdfUrl = ref("");
 const error = ref("");
 
+// 清理 blob URL，防止内存泄漏
+let blobUrl = null;
+function revokeBlobUrl() {
+  if (blobUrl) {
+    URL.revokeObjectURL(blobUrl);
+    blobUrl = null;
+  }
+}
+
+// base64 转 blob URL
+function base64ToBlobUrl(base64, mimeType) {
+  const byteCharacters = atob(base64);
+  const byteNumbers = new Array(byteCharacters.length);
+  for (let i = 0; i < byteCharacters.length; i++) {
+    byteNumbers[i] = byteCharacters.charCodeAt(i);
+  }
+  const byteArray = new Uint8Array(byteNumbers);
+  const blob = new Blob([byteArray], { type: mimeType });
+  blobUrl = URL.createObjectURL(blob);
+  return blobUrl;
+}
+
 const formattedContent = computed(() => {
   // 根据内容类型进行格式化
   if (!content.value) return "";
+
+  // DOCX 类型直接返回 HTML
+  if (documentType.value === "docx") {
+    return content.value;
+  }
 
   // 如果是 Markdown 内容，进行简单的高亮
   if (documentName.value.endsWith(".md")) {
@@ -107,10 +134,11 @@ const loadDocument = async () => {
     documentType.value = data.type;
 
     if (data.type === "pdf") {
-      // PDF 文件使用 iframe 预览，使用相对路径（兼容云函数环境）
-      pdfUrl.value = data.filePath;
+      // PDF 文件：base64 转 blob URL，用 iframe 渲染
+      revokeBlobUrl();
+      pdfUrl.value = base64ToBlobUrl(data.base64Data, data.mimeType);
     } else {
-      // 文本文件直接显示内容
+      // 文本文件/DOCX 直接显示内容
       content.value = data.content;
     }
 
@@ -124,6 +152,10 @@ const loadDocument = async () => {
 
 onMounted(() => {
   loadDocument();
+});
+
+onUnmounted(() => {
+  revokeBlobUrl();
 });
 </script>
 

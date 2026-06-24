@@ -3,6 +3,21 @@ import fs from "fs";
 import path from "path";
 import { VectorSearcher } from "./vector-search.js";
 
+// 动态导入 mammoth（DOCX 解析），避免本地没有安装时报错
+let mammoth = null;
+async function getMammoth() {
+  if (mammoth !== null) return mammoth;
+  try {
+    const mod = await import("mammoth");
+    mammoth = mod.default || mod;
+    console.log("[INFO] mammoth 加载成功");
+  } catch (e) {
+    console.warn("[WARN] mammoth 加载失败，DOCX 将无法解析:", e.message);
+    mammoth = false;
+  }
+  return mammoth;
+}
+
 /**
  * RAG Bot API - EdgeOne 云函数版本
  *
@@ -752,26 +767,54 @@ app.get("/documents/content/:name", async (req, res) => {
 
     // 根据文件类型解析内容
     if (ext === ".pdf") {
-      // PDF文件返回文件路径，前端使用iframe渲染
+      // PDF文件返回 base64 编码，前端用 blob URL 渲染
+      const fileBuffer = fs.readFileSync(filePath);
+      const base64Data = fileBuffer.toString("base64");
       return res.json({
         success: true,
         type: "pdf",
         fileName: fileName,
-        filePath: `/docs/${encodeURIComponent(fileName)}`,
-        message: "PDF文件使用iframe渲染",
+        base64Data: base64Data,
+        mimeType: "application/pdf",
+        size: fileBuffer.length,
       });
     } else if (ext === ".docx") {
-      // DOCX文件提示无法在云函数环境解析
-      return res.json({
-        success: true,
-        type: "text",
-        fileName: fileName,
-        content:
-          "DOCX文件解析需要额外依赖，云函数环境暂不支持。请在本地环境查看文档内容。",
-        mimeType:
-          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        size: fs.statSync(filePath).size,
-      });
+      // DOCX 文件使用 mammoth 解析为 HTML
+      const m = await getMammoth();
+      if (m) {
+        try {
+          const result = await m.convertToHtml({ path: filePath });
+          return res.json({
+            success: true,
+            type: "docx",
+            fileName: fileName,
+            content: result.value,
+            mimeType: "text/html",
+            size: fs.statSync(filePath).size,
+          });
+        } catch (parseError) {
+          console.error("[ERROR] DOCX 解析失败:", parseError.message);
+          return res.json({
+            success: true,
+            type: "text",
+            fileName: fileName,
+            content: `DOCX 解析失败: ${parseError.message}`,
+            mimeType: "text/plain",
+            size: fs.statSync(filePath).size,
+          });
+        }
+      } else {
+        return res.json({
+          success: true,
+          type: "text",
+          fileName: fileName,
+          content:
+            "DOCX文件解析需要额外依赖，当前环境暂不支持。请在本地环境查看文档内容。",
+          mimeType:
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          size: fs.statSync(filePath).size,
+        });
+      }
     } else {
       // TXT/MD文件直接读取
       try {
