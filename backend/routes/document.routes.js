@@ -350,13 +350,16 @@ router.get("/content/:name", async (req, res) => {
 
     // 根据文件类型解析内容
     if (ext === ".pdf") {
-      // PDF文件返回文件路径，前端使用iframe渲染
+      // PDF文件返回 base64 编码，前端用 blob URL 渲染（和腾讯云保持一致）
+      const fileBuffer = fs.readFileSync(filePath);
+      const base64Data = fileBuffer.toString("base64");
       return res.json({
         success: true,
         type: "pdf",
         fileName: fileName,
-        filePath: `/docs/${encodeURIComponent(fileName)}`,
-        message: "PDF文件使用iframe渲染",
+        base64Data: base64Data,
+        mimeType: "application/pdf",
+        size: fileBuffer.length,
       });
     } else if (ext === ".docx") {
       // DOCX文件使用textract解析

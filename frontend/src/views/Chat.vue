@@ -145,7 +145,7 @@ const handleUploadFile = async (file) => {
     // 检测是否是云环境限制
     if (err.message === "CLOUD_UPLOAD_NOT_SUPPORTED") {
       error(
-        "受部署环境限制，上传的文档仅作展示。完整的向量检索与智能问答功能请拉取项目到本地体验。",
+        "您可基于预置文档直接提问体验。如需上传自己的文档，建议将项目克隆到本地运行。",
       );
     } else {
       error("上传失败: " + err.message);
